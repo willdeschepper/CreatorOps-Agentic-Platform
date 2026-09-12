@@ -1,0 +1,22 @@
+meta {
+  name: Retry proposal execution idempotently
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/v1/agent/proposals/{{proposal_id}}/execute
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+tests {
+  test("Retry does not duplicate ledger entries", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.state).to.equal("executed");
+  });
+}

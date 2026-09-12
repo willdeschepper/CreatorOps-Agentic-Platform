@@ -1,0 +1,30 @@
+meta {
+  name: Track creator B affiliate click
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/r/{{link_b_code}}?visitor={{visitor_id}}
+  body: none
+  auth: none
+}
+
+settings {
+  followRedirects: false
+}
+
+script:post-response {
+  const clickId = res.headers["x-creatorops-click-id"] || res.headers["X-CreatorOps-Click-ID"];
+  bru.setEnvVar("click_id", clickId);
+}
+
+tests {
+  test("Tracking responds with a local redirect", function () {
+    expect(res.status).to.equal(307);
+  });
+
+  test("Tracking exposes the immutable click id", function () {
+    expect(bru.getEnvVar("click_id")).to.be.a("string");
+  });
+}

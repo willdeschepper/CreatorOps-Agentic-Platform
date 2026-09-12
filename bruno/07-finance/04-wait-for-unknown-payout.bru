@@ -1,0 +1,27 @@
+meta {
+  name: Wait for ambiguous provider result
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/v1/payout-batches/{{payout_batch_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+script:pre-request {
+  await bru.sleep(4000);
+}
+
+tests {
+  test("Timeout after processing leaves payout unknown", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.payouts[0].status).to.equal("unknown");
+    expect(res.body.payouts[0].provider_reference).to.equal(null);
+  });
+}

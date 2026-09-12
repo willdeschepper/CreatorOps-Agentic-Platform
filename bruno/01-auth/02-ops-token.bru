@@ -1,0 +1,30 @@
+meta {
+  name: Authenticate ops
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/v1/auth/token
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{ops_email}}",
+    "password": "{{password}}",
+    "brand_slug": "{{brand_slug}}"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("ops_token", res.body.access_token);
+}
+
+tests {
+  test("Ops receives a bearer token", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.token_type).to.equal("bearer");
+  });
+}

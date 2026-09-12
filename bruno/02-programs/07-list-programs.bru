@@ -1,0 +1,22 @@
+meta {
+  name: List tenant programs
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/v1/programs
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{owner_token}}
+}
+
+tests {
+  test("Created program is visible inside the active brand", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.some((program) => program.id === bru.getEnvVar("program_id"))).to.equal(true);
+  });
+}

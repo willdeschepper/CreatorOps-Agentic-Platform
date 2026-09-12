@@ -1,0 +1,36 @@
+meta {
+  name: Wait for worker and list matched posts
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/v1/posts?content_status=matched
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+script:pre-request {
+  await bru.sleep(2500);
+}
+
+script:post-response {
+  const post = res.body.find((item) => item.external_post_id === bru.getEnvVar("social_external_id"));
+  if (post) {
+    bru.setEnvVar("content_id", post.id);
+  }
+}
+
+tests {
+  test("Verified handle is matched to creator A", function () {
+    expect(res.status).to.equal(200);
+    const post = res.body.find((item) => item.external_post_id === bru.getEnvVar("social_external_id"));
+    expect(post).to.not.equal(undefined);
+    expect(post.membership_id).to.equal(bru.getEnvVar("membership_a_id"));
+    expect(post.status).to.equal("matched");
+  });
+}

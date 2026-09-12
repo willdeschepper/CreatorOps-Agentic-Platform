@@ -1,0 +1,157 @@
+name: creatorops
+
+x-app-environment: &app-environment
+  APP_ENV: local
+  DATABASE_URL: postgresql+asyncpg://creatorops:creatorops@db:5432/creatorops
+  JWT_SECRET: local-jwt-secret-change-me
+  COMMERCE_WEBHOOK_SECRET: local-commerce-secret
+  LOCAL_PROJECT_ID: creatorops-local
+  PUBSUB_EMULATOR_HOST: pubsub:8085
+  FIRESTORE_EMULATOR_HOST: firestore:8080
+  PUBSUB_TOPIC: creatorops-events
+  PUBSUB_SUBSCRIPTION: creatorops-worker
+  PROVIDER_BASE_URL: http://provider-sim:8090
+  PROVIDER_TIMEOUT_SECONDS: "0.75"
+  OTEL_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+  LOG_LEVEL: INFO
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: creatorops
+      POSTGRES_USER: creatorops
+      POSTGRES_PASSWORD: creatorops
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U creatorops -d creatorops"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  test-db:
+    image: postgres:16-alpine
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: creatorops_test
+      POSTGRES_USER: creatorops
+      POSTGRES_PASSWORD: creatorops
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U creatorops -d creatorops_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command:
+      - gcloud
+      - beta
+      - emulators
+      - pubsub
+      - start
+      - --host-port=0.0.0.0:8085
+      - --project=creatorops-local
+    ports:
+      - "8085:8085"
+
+  firestore:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command:
+      - gcloud
+      - beta
+      - emulators
+      - firestore
+      - start
+      - --host-port=0.0.0.0:8080
+      - --project=creatorops-local
+    ports:
+      - "8080:8080"
+
+  emulator-init:
+    build: .
+    command: ["creatorops-init-emulators"]
+    environment: *app-environment
+    depends_on:
+      pubsub:
+        condition: service_started
+      firestore:
+        condition: service_started
+    restart: "no"
+
+  provider-sim:
+    build: .
+    command: ["uvicorn", "provider_sim.main:app", "--host", "0.0.0.0", "--port", "8090"]
+    environment:
+      PROVIDER_DB_PATH: /data/provider.db
+      PROVIDER_TIMEOUT_DELAY_SECONDS: "1.5"
+    ports:
+      - "8090:8090"
+    volumes:
+      - provider-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8090/health')
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+
+  api:
+    build: .
+    command: ["/bin/sh", "-c", "alembic upgrade head && uvicorn creatorops.main:app --host 0.0.0.0 --port 8000"]
+    environment: *app-environment
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      emulator-init:
+        condition: service_completed_successfully
+      provider-sim:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  worker:
+    build: .
+    command: ["creatorops-worker"]
+    environment: *app-environment
+    depends_on:
+      db:
+        condition: service_healthy
+      emulator-init:
+        condition: service_completed_successfully
+      provider-sim:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  provider-data:

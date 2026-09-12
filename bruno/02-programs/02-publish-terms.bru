@@ -1,0 +1,34 @@
+meta {
+  name: Publish required terms
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/terms
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{owner_token}}
+}
+
+body:json {
+  {
+    "content": "CreatorOps local terms for the complete Bruno business journey.",
+    "required": true
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("terms_id", res.body.id);
+}
+
+tests {
+  test("First terms version is published", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.version).to.equal(1);
+    expect(res.body.required).to.equal(true);
+  });
+}

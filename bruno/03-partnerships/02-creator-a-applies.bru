@@ -1,0 +1,33 @@
+meta {
+  name: Creator A applies to program
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/applications
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_a_token}}
+}
+
+body:json {
+  {
+    "motivation": "I create practical technology content for this local test."
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("application_a_id", res.body.id);
+}
+
+tests {
+  test("Application is submitted", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.status).to.equal("submitted");
+    expect(res.body.creator_id).to.equal(bru.getEnvVar("creator_a_id"));
+  });
+}

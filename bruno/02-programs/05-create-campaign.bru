@@ -1,0 +1,35 @@
+meta {
+  name: Create campaign
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/campaigns
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{owner_token}}
+}
+
+body:json {
+  {
+    "name": "Local Launch {{run_id}}",
+    "briefing": "Campaign used by the complete local Bruno journey.",
+    "starts_at": "{{campaign_starts_at}}",
+    "ends_at": "{{campaign_ends_at}}"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("campaign_id", res.body.id);
+}
+
+tests {
+  test("Campaign starts as draft", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.status).to.equal("draft");
+  });
+}

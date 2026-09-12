@@ -1,0 +1,38 @@
+meta {
+  name: Create payout batch snapshot
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/v1/payout-batches
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+body:json {
+  {
+    "program_id": "{{program_id}}",
+    "cutoff_at": "{{payout_cutoff_at}}",
+    "scenario": "timeout_after"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("payout_batch_id", res.body.batch.id);
+  bru.setEnvVar("payout_id", res.body.payouts[0].id);
+}
+
+tests {
+  test("Draft batch snapshots the eligible 29 BRL", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.batch.status).to.equal("draft");
+    expect(res.body.payouts).to.have.lengthOf(1);
+    expect(res.body.payouts[0].amount).to.equal("29.00");
+    expect(res.body.payouts[0].status).to.equal("draft");
+  });
+}

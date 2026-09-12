@@ -1,0 +1,18 @@
+meta {
+  name: Prometheus metrics
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/metrics
+  body: none
+  auth: none
+}
+
+tests {
+  test("Metrics endpoint exports Prometheus text", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.a("string");
+  });
+}

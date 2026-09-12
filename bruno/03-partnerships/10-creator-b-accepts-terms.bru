@@ -1,0 +1,36 @@
+meta {
+  name: Creator B accepts current terms
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{base_url}}/v1/memberships/{{membership_b_id}}/terms-acceptances
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_b_token}}
+}
+
+body:json {
+  {
+    "terms_id": "{{terms_id}}"
+  }
+}
+
+script:post-response {
+  const coupon = res.body.assets.find((asset) => asset.asset_type === "coupon");
+  const link = res.body.assets.find((asset) => asset.asset_type === "link");
+  bru.setEnvVar("coupon_b_code", coupon.code);
+  bru.setEnvVar("link_b_code", link.code);
+}
+
+tests {
+  test("Creator B activates and receives a trackable link", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.membership.status).to.equal("active");
+    expect(bru.getEnvVar("link_b_code")).to.be.a("string");
+  });
+}

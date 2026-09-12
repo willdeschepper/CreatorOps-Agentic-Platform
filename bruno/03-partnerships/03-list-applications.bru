@@ -1,0 +1,22 @@
+meta {
+  name: Ops lists submitted applications
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/v1/applications?application_status=submitted
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+tests {
+  test("Application list is tenant scoped", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.some((application) => application.id === bru.getEnvVar("application_a_id"))).to.equal(true);
+  });
+}

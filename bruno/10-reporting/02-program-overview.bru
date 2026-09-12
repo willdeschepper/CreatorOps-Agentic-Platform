@@ -1,0 +1,28 @@
+meta {
+  name: Program overview
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/v1/reports/programs/{{program_id}}/overview
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{owner_token}}
+}
+
+tests {
+  test("Report combines commerce, content, commission and payout", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.gmv).to.equal("200.00");
+    expect(res.body.orders).to.equal(1);
+    expect(res.body.attributed_orders).to.equal(1);
+    expect(res.body.active_creators).to.equal(2);
+    expect(res.body.approved_posts).to.equal(1);
+    expect(res.body.commission_paid).to.equal("29.00");
+    expect(res.body.payouts.confirmed).to.equal(1);
+  });
+}

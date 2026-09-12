@@ -1,0 +1,29 @@
+meta {
+  name: Authenticate creator A
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/v1/auth/token
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{creator_a_email}}",
+    "password": "{{password}}",
+    "brand_slug": null
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("creator_a_token", res.body.access_token);
+}
+
+tests {
+  test("Creator A receives a bearer token", function () {
+    expect(res.status).to.equal(200);
+  });
+}

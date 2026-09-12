@@ -1,0 +1,32 @@
+meta {
+  name: Locate payout finding
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/v1/agent/findings?finding_state=open
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+script:post-response {
+  const finding = res.body.find((item) => item.payout_id === bru.getEnvVar("payout_id"));
+  if (finding) {
+    bru.setEnvVar("finding_id", finding.id);
+  }
+}
+
+tests {
+  test("Finding contains immutable provider evidence", function () {
+    const finding = res.body.find((item) => item.payout_id === bru.getEnvVar("payout_id"));
+    expect(res.status).to.equal(200);
+    expect(finding.finding_type).to.equal("provider_confirmed_internal_unknown");
+    expect(finding.evidence_hash).to.be.a("string");
+    expect(finding).to.have.property("payout_version");
+  });
+}

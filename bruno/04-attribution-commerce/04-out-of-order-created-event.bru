@@ -1,0 +1,44 @@
+meta {
+  name: Ignore out-of-order created event
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/v1/webhooks/commerce/{{brand_slug}}
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:text {
+  {}
+}
+
+script:pre-request {
+  const crypto = require("crypto-js");
+  const raw = JSON.stringify({
+    event_id: `evt-created-late-${bru.getEnvVar("run_id")}`,
+    event_type: "order.created",
+    order_id: bru.getEnvVar("external_order_id"),
+    occurred_at: bru.getEnvVar("commission_active_from"),
+    amount: "200.00",
+    currency: "BRL",
+    coupon_code: null,
+    click_id: null
+  });
+  const digest = crypto.HmacSHA256(raw, bru.getEnvVar("webhook_secret")).toString(crypto.enc.Hex);
+  req.setBody(raw);
+  req.setHeader("X-Webhook-Signature", `sha256=${digest}`);
+}
+
+tests {
+  test("Late created event cannot regress a paid order", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("paid");
+    expect(res.body.order_id).to.equal(bru.getEnvVar("order_id"));
+  });
+}

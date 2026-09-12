@@ -1,0 +1,33 @@
+meta {
+  name: Ops approves creator B
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{base_url}}/v1/applications/{{application_b_id}}/review
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "decision": "approved",
+    "note": "Approved to create a conflicting affiliate link"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("membership_b_id", res.body.membership.id);
+}
+
+tests {
+  test("Creator B receives an awaiting_terms membership", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.membership.status).to.equal("awaiting_terms");
+  });
+}

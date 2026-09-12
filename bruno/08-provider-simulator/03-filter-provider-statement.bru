@@ -1,0 +1,19 @@
+meta {
+  name: Filter provider statement by payout
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{provider_url}}/statement?payout_id={{payout_id}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Statement contains exactly one transfer for the payout", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.lengthOf(1);
+    expect(res.body[0].payout_id).to.equal(bru.getEnvVar("payout_id"));
+  });
+}

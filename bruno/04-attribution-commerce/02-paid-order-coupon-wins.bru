@@ -1,0 +1,53 @@
+meta {
+  name: Paid order - coupon wins conflicting link
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/v1/webhooks/commerce/{{brand_slug}}
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:text {
+  {}
+}
+
+script:pre-request {
+  const crypto = require("crypto-js");
+  const raw = JSON.stringify({
+    event_id: bru.getEnvVar("commerce_event_id"),
+    event_type: "order.paid",
+    order_id: bru.getEnvVar("external_order_id"),
+    occurred_at: bru.getEnvVar("commerce_occurred_at"),
+    amount: "200.00",
+    currency: "BRL",
+    coupon_code: bru.getEnvVar("coupon_a_code"),
+    click_id: bru.getEnvVar("click_id")
+  });
+  const digest = crypto.HmacSHA256(raw, bru.getEnvVar("webhook_secret")).toString(crypto.enc.Hex);
+  req.setBody(raw);
+  req.setHeader("X-Webhook-Signature", `sha256=${digest}`);
+}
+
+script:post-response {
+  bru.setEnvVar("order_id", res.body.order_id);
+}
+
+tests {
+  test("Paid event is processed", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("paid");
+    expect(res.body.duplicate).to.equal(false);
+  });
+
+  test("Coupon wins the conflicting creator B click", function () {
+    expect(res.body.attribution).to.equal("coupon");
+    expect(res.body.commission).to.equal("29.00");
+  });
+}

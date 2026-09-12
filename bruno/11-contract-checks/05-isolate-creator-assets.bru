@@ -1,0 +1,22 @@
+meta {
+  name: Prevent creator B from reading creator A assets
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/v1/memberships/{{membership_a_id}}/assets
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_b_token}}
+}
+
+tests {
+  test("Creator ownership is enforced", function () {
+    expect(res.status).to.equal(404);
+    expect(res.body.code).to.equal("membership_not_found");
+  });
+}

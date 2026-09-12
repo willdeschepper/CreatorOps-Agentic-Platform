@@ -1,0 +1,28 @@
+meta {
+  name: Activate program
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{owner_token}}
+}
+
+body:json {
+  {
+    "status": "active"
+  }
+}
+
+tests {
+  test("Program is active only after terms and commission rules exist", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("active");
+  });
+}

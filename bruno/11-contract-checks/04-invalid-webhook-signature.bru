@@ -1,0 +1,34 @@
+meta {
+  name: Reject invalid webhook signature
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/v1/webhooks/commerce/{{brand_slug}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-Webhook-Signature: sha256=invalid
+}
+
+body:json {
+  {
+    "event_id": "evt-invalid-signature-{{run_id}}",
+    "event_type": "order.created",
+    "order_id": "invalid-signature-{{run_id}}",
+    "occurred_at": "{{commerce_occurred_at}}",
+    "amount": "10.00",
+    "currency": "BRL"
+  }
+}
+
+tests {
+  test("Invalid HMAC is rejected before domain processing", function () {
+    expect(res.status).to.equal(401);
+    expect(res.body.code).to.equal("unauthorized");
+  });
+}

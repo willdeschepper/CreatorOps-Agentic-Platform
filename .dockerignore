@@ -1,0 +1,16 @@
+.git
+.DS_Store
+.coverage
+.env
+.env.*
+.venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+__pycache__
+*.pyc
+*.pdf
+tests
+bruno
+docs

@@ -1,0 +1,23 @@
+meta {
+  name: Inspect creator principal
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base_url}}/v1/auth/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_a_token}}
+}
+
+tests {
+  test("Creator principal has no staff tenant context", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.kind).to.equal("creator");
+    expect(res.body.role).to.equal(null);
+  });
+}

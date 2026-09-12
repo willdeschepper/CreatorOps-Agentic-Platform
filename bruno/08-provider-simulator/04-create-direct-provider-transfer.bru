@@ -1,0 +1,33 @@
+meta {
+  name: Create isolated provider transfer
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{provider_url}}/transfers
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{provider_test_key}}
+}
+
+body:json {
+  {
+    "payout_id": "{{provider_test_payout_id}}",
+    "beneficiary_id": "{{provider_test_beneficiary_id}}",
+    "amount": "10.00",
+    "currency": "BRL",
+    "scenario": "success"
+  }
+}
+
+tests {
+  test("Provider records a confirmed idempotent transfer", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.idempotency_key).to.equal(bru.getEnvVar("provider_test_key"));
+    expect(res.body.status).to.equal("confirmed");
+  });
+}

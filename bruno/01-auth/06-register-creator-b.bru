@@ -1,0 +1,36 @@
+meta {
+  name: Register creator B
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/v1/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{creator_b_email}}",
+    "password": "{{password}}",
+    "display_name": "Bruno Creator",
+    "socials": [
+      {
+        "network": "instagram",
+        "handle": "{{creator_b_handle}}"
+      }
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("creator_b_id", res.body.id);
+}
+
+tests {
+  test("Creator B is created for the attribution conflict", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.kind).to.equal("creator");
+  });
+}

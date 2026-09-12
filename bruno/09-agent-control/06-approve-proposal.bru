@@ -1,0 +1,28 @@
+meta {
+  name: Human approves proposal
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/v1/agent/proposals/{{proposal_id}}/approve
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+body:json {
+  {
+    "comment": "Provider evidence, amount, beneficiary and idempotency key were reviewed locally"
+  }
+}
+
+tests {
+  test("Human comment and approval are recorded", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.state).to.equal("approved");
+  });
+}

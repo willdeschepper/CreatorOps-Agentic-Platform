@@ -1,0 +1,29 @@
+meta {
+  name: Human approves payout batch
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/v1/payout-batches/{{payout_batch_id}}/approve
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+body:json {
+  {
+    "comment": "Approved in Bruno for the local reconciliation journey"
+  }
+}
+
+tests {
+  test("Approval reserves funds and queues the transfer", function () {
+    expect(res.status).to.equal(200);
+    expect(["approved", "processing"]).to.include(res.body.batch.status);
+    expect(res.body.payouts[0].status).to.equal("pending");
+  });
+}

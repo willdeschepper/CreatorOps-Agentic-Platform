@@ -1,0 +1,32 @@
+meta {
+  name: Creator B applies to program
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/applications
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_b_token}}
+}
+
+body:json {
+  {
+    "motivation": "I create backend architecture content for this attribution test."
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("application_b_id", res.body.id);
+}
+
+tests {
+  test("Creator B application is submitted", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.status).to.equal("submitted");
+  });
+}

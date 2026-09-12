@@ -1,0 +1,24 @@
+meta {
+  name: Run deterministic gates
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/v1/agent/proposals/{{proposal_id}}/gate
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+tests {
+  test("Every financial gate passes", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.proposal.state).to.equal("gated");
+    expect(res.body.gate.result).to.equal("passed");
+    expect(res.body.gate.checks.every((check) => check.passed === true)).to.equal(true);
+  });
+}

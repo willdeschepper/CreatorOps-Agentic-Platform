@@ -1,0 +1,23 @@
+meta {
+  name: Inspect owner principal
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base_url}}/v1/auth/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{owner_token}}
+}
+
+tests {
+  test("Owner principal contains brand and role", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.role).to.equal("owner");
+    expect(res.body.brand_id).to.be.a("string");
+  });
+}

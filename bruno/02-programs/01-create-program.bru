@@ -1,0 +1,37 @@
+meta {
+  name: Create program
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/v1/programs
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{owner_token}}
+}
+
+body:json {
+  {
+    "name": "Bruno Creator Program {{run_id}}",
+    "slug": "{{program_slug}}",
+    "attribution_window_days": 30,
+    "return_window_days": 0,
+    "payout_minimum": "1.00"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("program_id", res.body.id);
+}
+
+tests {
+  test("Program starts as draft", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.status).to.equal("draft");
+    expect(res.body.currency).to.equal("BRL");
+  });
+}

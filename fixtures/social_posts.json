@@ -1,0 +1,28 @@
+[
+  {
+    "network": "instagram",
+    "external_post_id": "ig-local-001",
+    "handle": "creator_demo",
+    "published_at": "2026-09-11T12:00:00Z",
+    "caption": "Conteúdo local de demonstração do CreatorOps.",
+    "url": "https://example.test/posts/ig-local-001",
+    "metrics": {
+      "likes": 431,
+      "comments": 27,
+      "views": 7800
+    }
+  },
+  {
+    "network": "tiktok",
+    "external_post_id": "tt-local-001",
+    "handle": "creator_demo",
+    "published_at": "2026-09-11T13:00:00Z",
+    "caption": "Segundo conteúdo simulado, sem coleta real de rede social.",
+    "url": "https://example.test/posts/tt-local-001",
+    "metrics": {
+      "likes": 1200,
+      "comments": 91,
+      "views": 22000
+    }
+  }
+]

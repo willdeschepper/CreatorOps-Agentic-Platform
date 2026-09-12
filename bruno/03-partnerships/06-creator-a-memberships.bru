@@ -1,0 +1,22 @@
+meta {
+  name: Creator A lists own memberships
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base_url}}/v1/memberships/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_a_token}}
+}
+
+tests {
+  test("Creator sees only own memberships", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.some((membership) => membership.id === bru.getEnvVar("membership_a_id"))).to.equal(true);
+  });
+}

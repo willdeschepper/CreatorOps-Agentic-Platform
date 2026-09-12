@@ -1,0 +1,34 @@
+meta {
+  name: Ops approves creator A
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/v1/applications/{{application_a_id}}/review
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "decision": "approved",
+    "note": "Approved by the Bruno local journey"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("membership_a_id", res.body.membership.id);
+}
+
+tests {
+  test("Approval creates an awaiting_terms membership", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.application.status).to.equal("approved");
+    expect(res.body.membership.status).to.equal("awaiting_terms");
+  });
+}

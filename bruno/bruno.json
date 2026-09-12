@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "CreatorOps Local",
+  "type": "collection",
+  "ignore": ["node_modules", ".git", ".DS_Store", "README.md"]
+}

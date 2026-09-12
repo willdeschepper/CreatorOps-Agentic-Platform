@@ -1,0 +1,63 @@
+meta {
+  name: Initialize scenario and check readiness
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/health/ready
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  const now = new Date();
+  const runId = `${now.getTime()}-${Math.floor(Math.random() * 100000)}`;
+  const handleRunId = runId.replaceAll("-", "_");
+  const uuid = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+
+  bru.setEnvVar("run_id", runId);
+  bru.setEnvVar("program_slug", `bruno-${runId}`);
+  bru.setEnvVar("creator_a_email", `alice-${runId}@creatorops.dev`);
+  bru.setEnvVar("creator_a_handle", `alice_${handleRunId}`);
+  bru.setEnvVar("creator_b_email", `bruno-${runId}@creatorops.dev`);
+  bru.setEnvVar("creator_b_handle", `bruno_${handleRunId}`);
+  bru.setEnvVar("visitor_id", `shopper-${runId}`);
+  bru.setEnvVar("commerce_event_id", `evt-paid-${runId}`);
+  bru.setEnvVar("external_order_id", `order-${runId}`);
+  bru.setEnvVar("social_external_id", `ig-${runId}`);
+  bru.setEnvVar("commission_active_from", new Date(now.getTime() - 60000).toISOString());
+  bru.setEnvVar("campaign_starts_at", new Date(now.getTime() - 60000).toISOString());
+  bru.setEnvVar("campaign_ends_at", new Date(now.getTime() + 30 * 86400000).toISOString());
+  bru.setEnvVar("commerce_occurred_at", new Date(now.getTime() + 5 * 60000).toISOString());
+  bru.setEnvVar("settlement_at", new Date(now.getTime() + 86400000).toISOString());
+  bru.setEnvVar("payout_cutoff_at", new Date(now.getTime() + 86400000 + 600000).toISOString());
+  bru.setEnvVar("provider_test_payout_id", uuid());
+  bru.setEnvVar("provider_test_beneficiary_id", uuid());
+  bru.setEnvVar("provider_test_key", `bruno-provider-${runId}`);
+
+  [
+    "owner_token", "ops_token", "finance_token", "creator_a_token", "creator_b_token",
+    "program_id", "terms_id", "commission_plan_id", "campaign_id", "creator_a_id",
+    "application_a_id", "membership_a_id", "coupon_a_code", "link_a_code", "creator_b_id",
+    "application_b_id", "membership_b_id", "coupon_b_code", "link_b_code", "click_id",
+    "order_id", "content_id", "payout_batch_id", "payout_id", "finding_id", "proposal_id"
+  ].forEach((name) => bru.setEnvVar(name, ""));
+}
+
+tests {
+  test("API and PostgreSQL are ready", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("ready");
+    expect(res.body.database).to.equal("ok");
+  });
+}
+
+docs {
+  Sempre execute este request antes do Collection Runner. Ele cria dados exclusivos e evita
+  conflito com execuções anteriores.
+}

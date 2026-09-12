@@ -1,0 +1,25 @@
+meta {
+  name: Creator A inspects paid balance
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/v1/memberships/{{membership_a_id}}/balance
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_a_token}}
+}
+
+tests {
+  test("All reserved money moved to paid", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.pending).to.equal("0.00");
+    expect(res.body.available).to.equal("0.00");
+    expect(res.body.reserved).to.equal("0.00");
+    expect(res.body.paid).to.equal("29.00");
+  });
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Reject unauthenticated program access
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/v1/programs
+  body: none
+  auth: none
+}
+
+tests {
+  test("Protected endpoint requires a bearer token", function () {
+    expect(res.status).to.equal(401);
+  });
+}

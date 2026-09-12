@@ -1,0 +1,43 @@
+meta {
+  name: Create a second order
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/v1/webhooks/commerce/{{brand_slug}}
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:text {
+  {}
+}
+
+script:pre-request {
+  const crypto = require("crypto-js");
+  const raw = JSON.stringify({
+    event_id: `evt-created-cancel-${bru.getEnvVar("run_id")}`,
+    event_type: "order.created",
+    order_id: `order-cancel-${bru.getEnvVar("run_id")}`,
+    occurred_at: bru.getEnvVar("commerce_occurred_at"),
+    amount: "80.00",
+    currency: "BRL",
+    coupon_code: null,
+    click_id: null
+  });
+  const digest = crypto.HmacSHA256(raw, bru.getEnvVar("webhook_secret")).toString(crypto.enc.Hex);
+  req.setBody(raw);
+  req.setHeader("X-Webhook-Signature", `sha256=${digest}`);
+}
+
+tests {
+  test("Order starts in created state", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("created");
+  });
+}

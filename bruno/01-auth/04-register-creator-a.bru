@@ -1,0 +1,36 @@
+meta {
+  name: Register creator A
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/v1/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{creator_a_email}}",
+    "password": "{{password}}",
+    "display_name": "Alice Creator",
+    "socials": [
+      {
+        "network": "instagram",
+        "handle": "{{creator_a_handle}}"
+      }
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("creator_a_id", res.body.id);
+}
+
+tests {
+  test("Creator A is created with a social profile", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.kind).to.equal("creator");
+  });
+}

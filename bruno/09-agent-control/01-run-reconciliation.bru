@@ -1,0 +1,24 @@
+meta {
+  name: Run reconciliation
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/v1/reconciliation/runs
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+tests {
+  test("Reconciliation scans the ambiguous payout", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.status).to.equal("completed");
+    expect(res.body.summary.payouts_scanned).to.be.greaterThan(0);
+    expect(res.body.summary.findings).to.be.greaterThan(0);
+  });
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Approve matched post
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/v1/posts/{{content_id}}/review
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "decision": "approved"
+  }
+}
+
+tests {
+  test("Approved content can enter reports", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("approved");
+  });
+}

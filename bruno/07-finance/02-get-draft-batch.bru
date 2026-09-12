@@ -1,0 +1,23 @@
+meta {
+  name: Inspect draft payout batch
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/v1/payout-batches/{{payout_batch_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+tests {
+  test("Draft preserves its payout snapshot", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.batch.id).to.equal(bru.getEnvVar("payout_batch_id"));
+    expect(res.body.payouts[0].id).to.equal(bru.getEnvVar("payout_id"));
+  });
+}

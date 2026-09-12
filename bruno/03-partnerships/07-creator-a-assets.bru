@@ -1,0 +1,23 @@
+meta {
+  name: Creator A lists affiliate assets
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/v1/memberships/{{membership_a_id}}/assets
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_a_token}}
+}
+
+tests {
+  test("Active membership exposes coupon and link", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.lengthOf(2);
+    expect(res.body.every((asset) => asset.active === true)).to.equal(true);
+  });
+}

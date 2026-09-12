@@ -1,0 +1,55 @@
+meta {
+  name: Create versioned commission plan
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/commission-plans
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+body:json {
+  {
+    "campaign_id": null,
+    "base_rate": "0.10",
+    "return_window_days": 0,
+    "payout_minimum": "1.00",
+    "active_from": "{{commission_active_from}}",
+    "tiers": [
+      {
+        "threshold_gmv": "100.00",
+        "rate": "0.12"
+      },
+      {
+        "threshold_gmv": "500.00",
+        "rate": "0.15"
+      }
+    ],
+    "bonuses": [
+      {
+        "name": "First 200 BRL",
+        "metric": "gmv",
+        "threshold": "200.00",
+        "amount": "5.00"
+      }
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("commission_plan_id", res.body.id);
+}
+
+tests {
+  test("Commission plan is versioned and uses decimal rates", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.version).to.equal(1);
+    expect(res.body.base_rate).to.equal("0.10");
+  });
+}

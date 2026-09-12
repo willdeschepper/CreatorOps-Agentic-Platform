@@ -1,0 +1,28 @@
+meta {
+  name: Block rejection after execution
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{base_url}}/v1/agent/proposals/{{proposal_id}}/reject
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+body:json {
+  {
+    "comment": "This rejection is intentionally too late"
+  }
+}
+
+tests {
+  test("An executed proposal cannot be rejected retroactively", function () {
+    expect(res.status).to.equal(409);
+    expect(res.body.code).to.equal("proposal_not_rejectable");
+  });
+}

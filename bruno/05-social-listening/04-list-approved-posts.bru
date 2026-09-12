@@ -17,6 +17,6 @@ auth:bearer {
 tests {
   test("Approved post is visible in tenant queue", function () {
     expect(res.status).to.equal(200);
-    expect(res.body.some((item) => item.id === bru.getEnvVar("content_id"))).to.equal(true);
+    expect(res.body.items.some((item) => item.id === bru.getEnvVar("content_id"))).to.equal(true);
   });
 }

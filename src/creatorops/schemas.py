@@ -16,13 +16,21 @@ from pydantic import (
 from creatorops.models.enums import (
     ApplicationStatus,
     AssetType,
+    AttributionReason,
     BrandRole,
+    CampaignParticipantStatus,
     CampaignStatus,
     CommerceEventType,
+    CommissionKind,
+    CommissionStatus,
     ContentStatus,
     FindingState,
     FindingType,
+    InvitationStatus,
+    LedgerBucket,
+    LedgerEntryType,
     MembershipStatus,
+    OrderStatus,
     PayoutBatchStatus,
     PayoutStatus,
     ProgramStatus,
@@ -43,6 +51,13 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PageResponse[PageItem](BaseModel):
+    items: list[PageItem]
+    total: int
+    limit: int
+    offset: int
+
+
 class SocialProfileInput(BaseModel):
     network: SocialNetwork
     handle: str = Field(min_length=1, max_length=120)
@@ -53,6 +68,13 @@ class RegisterCreatorRequest(BaseModel):
     password: str = Field(min_length=10, max_length=128)
     display_name: str = Field(min_length=2, max_length=160)
     socials: list[SocialProfileInput] = Field(default_factory=list, max_length=2)
+
+
+class CreatorRegistrationResponse(ORMModel):
+    id: uuid.UUID
+    email: EmailStr
+    display_name: str
+    kind: UserKind
 
 
 class TokenRequest(BaseModel):
@@ -74,6 +96,7 @@ class MeResponse(BaseModel):
     kind: UserKind
     brand_id: uuid.UUID | None
     role: BrandRole | None
+    socials: list["SocialProfileResponse"] = Field(default_factory=list)
 
 
 class ProgramCreateRequest(BaseModel):
@@ -94,6 +117,7 @@ class ProgramResponse(ORMModel):
     return_window_days: int
     payout_minimum: Money
     currency: str
+    created_at: datetime
 
 
 class ProgramStatusRequest(BaseModel):
@@ -136,6 +160,7 @@ class CampaignResponse(ORMModel):
     briefing: str
     starts_at: datetime | None
     ends_at: datetime | None
+    created_at: datetime
 
 
 class CampaignStatusRequest(BaseModel):
@@ -182,6 +207,40 @@ class CommissionPlanResponse(ORMModel):
     active_from: datetime
 
 
+class CommissionTierResponse(ORMModel):
+    id: uuid.UUID
+    threshold_gmv: Money
+    rate: Rate
+
+
+class BonusRuleResponse(ORMModel):
+    id: uuid.UUID
+    name: str
+    metric: str
+    threshold: Money
+    amount: Money
+
+
+class CommissionPlanDetailResponse(CommissionPlanResponse):
+    tiers: list[CommissionTierResponse]
+    bonuses: list[BonusRuleResponse]
+
+
+class SocialProfileResponse(ORMModel):
+    id: uuid.UUID
+    network: SocialNetwork
+    handle: str
+    handle_normalized: str
+    verified: bool
+
+
+class CreatorSummary(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    display_name: str
+    socials: list[SocialProfileResponse] = Field(default_factory=list)
+
+
 class ApplicationCreateRequest(BaseModel):
     motivation: str = Field(default="", max_length=3000)
 
@@ -195,10 +254,25 @@ class ApplicationResponse(ORMModel):
     id: uuid.UUID
     program_id: uuid.UUID
     creator_id: uuid.UUID
+    source: str
     status: ApplicationStatus
     motivation: str
     review_note: str | None
     created_at: datetime
+
+
+class ApplicationDetailResponse(ApplicationResponse):
+    program_name: str
+    creator: CreatorSummary
+
+
+class ApplicationReviewResponse(BaseModel):
+    application: ApplicationResponse
+    membership: "MembershipResponse | None"
+
+
+class ApplicationWithdrawRequest(BaseModel):
+    comment: str = Field(default="", max_length=2000)
 
 
 class MembershipResponse(ORMModel):
@@ -208,6 +282,11 @@ class MembershipResponse(ORMModel):
     status: MembershipStatus
     activated_at: datetime | None
     version: int
+
+
+class MembershipStatusRequest(BaseModel):
+    status: Literal["active", "paused", "offboarded"]
+    comment: str = Field(min_length=3, max_length=2000)
 
 
 class TermsAcceptanceRequest(BaseModel):
@@ -222,6 +301,88 @@ class AssetResponse(ORMModel):
     code: str
     target_url: str | None
     active: bool
+
+
+class TermsAcceptanceResponse(BaseModel):
+    membership: MembershipResponse
+    assets: list[AssetResponse]
+
+
+class MembershipDetailResponse(MembershipResponse):
+    program_name: str
+    creator: CreatorSummary
+    accepted_terms_version: int | None
+    required_terms: TermsResponse | None
+    assets: list[AssetResponse]
+    balance: "BalanceResponse"
+
+
+class InvitationCreateRequest(BaseModel):
+    email: EmailStr
+    expires_in_hours: int = Field(default=168, ge=1, le=720)
+
+
+class InvitationResponse(ORMModel):
+    id: uuid.UUID
+    program_id: uuid.UUID
+    email: EmailStr
+    status: InvitationStatus
+    expires_at: datetime
+    used_at: datetime | None
+    revoked_at: datetime | None
+    created_at: datetime
+
+
+class InvitationCreatedResponse(InvitationResponse):
+    token: str
+    acceptance_url: str
+
+
+class InvitationInspectResponse(BaseModel):
+    program_id: uuid.UUID
+    program_name: str
+    brand_name: str
+    email_hint: str
+    status: InvitationStatus
+    expires_at: datetime
+
+
+class InvitationAcceptResponse(BaseModel):
+    invitation: InvitationResponse
+    application: ApplicationResponse
+    membership: MembershipResponse
+
+
+class CampaignParticipantsRequest(BaseModel):
+    membership_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+
+    @field_validator("membership_ids")
+    @classmethod
+    def unique_memberships(cls, value: list[uuid.UUID]) -> list[uuid.UUID]:
+        if len(set(value)) != len(value):
+            raise ValueError("membership_ids must be unique")
+        return value
+
+
+class CampaignParticipantStatusRequest(BaseModel):
+    status: CampaignParticipantStatus
+    comment: str = Field(min_length=3, max_length=2000)
+
+
+class CampaignParticipantResponse(ORMModel):
+    id: uuid.UUID
+    campaign_id: uuid.UUID
+    membership_id: uuid.UUID
+    status: CampaignParticipantStatus
+    selected_by: uuid.UUID | None
+    selected_at: datetime
+    removed_at: datetime | None
+    version: int
+
+
+class CampaignParticipantDetailResponse(CampaignParticipantResponse):
+    creator: CreatorSummary
+    assets: list[AssetResponse]
 
 
 class CommerceWebhookRequest(BaseModel):
@@ -288,12 +449,15 @@ class ApprovalRequest(BaseModel):
 
 class PayoutItemResponse(ORMModel):
     id: uuid.UUID
+    batch_id: uuid.UUID
+    program_id: uuid.UUID
     membership_id: uuid.UUID
     amount: Money
     currency: str
     status: PayoutStatus
     provider_reference: str | None
     version: int
+    created_at: datetime
 
 
 class PayoutBatchResponse(ORMModel):
@@ -303,6 +467,16 @@ class PayoutBatchResponse(ORMModel):
     status: PayoutBatchStatus
     created_by: uuid.UUID
     approved_by: uuid.UUID | None
+    created_at: datetime
+
+
+class PayoutBatchDetailResponse(BaseModel):
+    batch: PayoutBatchResponse
+    payouts: list[PayoutItemResponse]
+
+
+class PayoutBatchCancelRequest(BaseModel):
+    comment: str = Field(min_length=3, max_length=2000)
 
 
 class SocialPostInput(BaseModel):
@@ -335,6 +509,11 @@ class SocialImportRequest(BaseModel):
     posts: list[SocialPostInput] = Field(min_length=1, max_length=500)
 
 
+class SocialImportResponse(BaseModel):
+    status: Literal["queued"]
+    posts: int
+
+
 class ContentReviewRequest(BaseModel):
     decision: Literal["approved", "rejected"]
 
@@ -349,14 +528,30 @@ class ContentEvidenceResponse(ORMModel):
     metrics: dict[str, object]
 
 
+class ContentEvidenceDetailResponse(ContentEvidenceResponse):
+    brand_id: uuid.UUID
+    program_id: uuid.UUID
+    campaign_id: uuid.UUID | None
+    handle_normalized: str
+    firestore_path: str
+    reviewed_by: uuid.UUID | None
+    reviewed_at: datetime | None
+    created_at: datetime
+
+
 class ReconciliationRunResponse(ORMModel):
     id: uuid.UUID
+    brand_id: uuid.UUID
+    started_by: uuid.UUID
     status: str
+    started_at: datetime
+    completed_at: datetime | None
     summary: dict[str, object]
 
 
 class FindingResponse(ORMModel):
     id: uuid.UUID
+    run_id: uuid.UUID
     payout_id: uuid.UUID
     finding_type: FindingType
     state: FindingState
@@ -364,6 +559,7 @@ class FindingResponse(ORMModel):
     evidence_hash: str
     payout_version: int
     created_at: datetime
+    resolved_at: datetime | None
 
 
 class ProposalResponse(ORMModel):
@@ -375,6 +571,19 @@ class ProposalResponse(ORMModel):
     risk: str
     proposed_changes: dict[str, object]
     payout_version: int
+    created_at: datetime
+
+
+class ProposalDetailResponse(ProposalResponse):
+    evidence_hash: str
+    approved_by: uuid.UUID | None
+    approval_comment: str | None
+    approved_at: datetime | None
+    rejected_by: uuid.UUID | None
+    rejection_comment: str | None
+    rejected_at: datetime | None
+    executed_at: datetime | None
+    gates: list["GateRunResponse"]
 
 
 class RejectRequest(BaseModel):
@@ -392,11 +601,102 @@ class SettlementRequest(BaseModel):
         return value
 
 
+class SettlementResponse(BaseModel):
+    settled: int
+
+
+class HealthResponse(BaseModel):
+    status: str
+
+
+class ReadinessResponse(HealthResponse):
+    database: str
+
+
 class GateRunResponse(ORMModel):
     id: uuid.UUID
     proposal_id: uuid.UUID
     result: str
     checks: list[dict[str, object]]
+    created_at: datetime
+
+
+class GateResponse(BaseModel):
+    proposal: ProposalResponse
+    gate: GateRunResponse
+
+
+class FindingDismissRequest(BaseModel):
+    comment: str = Field(min_length=3, max_length=2000)
+
+
+class OrderResponse(ORMModel):
+    id: uuid.UUID
+    program_id: uuid.UUID | None
+    external_id: str
+    status: OrderStatus
+    gross_amount: Money
+    refunded_amount: Money
+    currency: str
+    paid_at: datetime | None
+    created_at: datetime
+
+
+class OrderAttributionResponse(ORMModel):
+    id: uuid.UUID
+    membership_id: uuid.UUID | None
+    campaign_id: uuid.UUID | None
+    coupon_asset_id: uuid.UUID | None
+    click_id: uuid.UUID | None
+    reason: AttributionReason
+    signals: dict[str, object]
+    attributed_at: datetime
+
+
+class CommissionResponse(ORMModel):
+    id: uuid.UUID
+    order_id: uuid.UUID
+    membership_id: uuid.UUID
+    plan_id: uuid.UUID
+    plan_version: int
+    kind: CommissionKind
+    status: CommissionStatus
+    gross_basis: Money
+    rate: Rate
+    amount: Money
+    period_key: str
+    eligible_at: datetime
+    available_at: datetime | None
+    created_at: datetime
+
+
+class OrderDetailResponse(OrderResponse):
+    attribution: OrderAttributionResponse | None
+    commissions: list[CommissionResponse]
+
+
+class LedgerEntryResponse(ORMModel):
+    id: uuid.UUID
+    program_id: uuid.UUID
+    membership_id: uuid.UUID
+    commission_id: uuid.UUID | None
+    payout_id: uuid.UUID | None
+    bucket: LedgerBucket
+    entry_type: LedgerEntryType
+    amount: Money
+    currency: str
+    idempotency_key: str
+    description: str
+    created_at: datetime
+
+
+class AuditLogResponse(ORMModel):
+    id: uuid.UUID
+    actor_user_id: uuid.UUID | None
+    action: str
+    entity_type: str
+    entity_id: uuid.UUID
+    data: dict[str, object]
     created_at: datetime
 
 
@@ -409,6 +709,38 @@ class ReportOverviewResponse(BaseModel):
     attributed_orders: int
     active_creators: int
     approved_posts: int
+    commission_pending: Money
+    commission_available: Money
+    commission_reserved: Money
+    commission_paid: Money
+    payouts: dict[str, int]
+    social_metrics: dict[str, int] = Field(default_factory=dict)
+
+
+class CampaignReportResponse(BaseModel):
+    campaign_id: uuid.UUID
+    program_id: uuid.UUID
+    gmv: Money
+    refunded_gmv: Money
+    net_gmv: Money
+    orders: int
+    selected_creators: int
+    approved_posts: int
+    social_metrics: dict[str, int]
+    commission_accrued: Money
+    commission_adjustments: Money
+    net_commission: Money
+
+
+class MembershipReportResponse(BaseModel):
+    membership_id: uuid.UUID
+    program_id: uuid.UUID
+    gmv: Money
+    refunded_gmv: Money
+    net_gmv: Money
+    orders: int
+    approved_posts: int
+    social_metrics: dict[str, int]
     commission_pending: Money
     commission_available: Money
     commission_reserved: Money

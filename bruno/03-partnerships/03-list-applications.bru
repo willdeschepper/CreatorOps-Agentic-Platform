@@ -17,6 +17,6 @@ auth:bearer {
 tests {
   test("Application list is tenant scoped", function () {
     expect(res.status).to.equal(200);
-    expect(res.body.some((application) => application.id === bru.getEnvVar("application_a_id"))).to.equal(true);
+    expect(res.body.items.some((application) => application.id === bru.getEnvVar("application_a_id"))).to.equal(true);
   });
 }

@@ -9,19 +9,21 @@ from creatorops.core.errors import NotFoundError
 from creatorops.core.security import Principal, require_creator, require_roles
 from creatorops.models.enums import BrandRole, LedgerBucket
 from creatorops.models.partnerships import ProgramMembership
-from creatorops.schemas import BalanceResponse, SettlementRequest
+from creatorops.schemas import BalanceResponse, SettlementRequest, SettlementResponse
 from creatorops.services import commissions
 
 router = APIRouter(tags=["commissions"])
 
 
-@router.post("/commissions/settle")
+@router.post("/commissions/settle", response_model=SettlementResponse)
 async def settle_commissions(
     body: SettlementRequest,
     _principal: Principal = Depends(require_roles(BrandRole.OWNER, BrandRole.FINANCE)),
     session: AsyncSession = Depends(get_session),
-) -> dict[str, int]:
-    return {"settled": await commissions.settle_due_commissions(session, as_of=body.as_of)}
+) -> SettlementResponse:
+    return SettlementResponse(
+        settled=await commissions.settle_due_commissions(session, as_of=body.as_of)
+    )
 
 
 @router.get(

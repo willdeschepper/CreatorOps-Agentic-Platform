@@ -32,6 +32,11 @@ class CampaignStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class CampaignParticipantStatus(StrEnum):
+    SELECTED = "selected"
+    REMOVED = "removed"
+
+
 class ApplicationStatus(StrEnum):
     SUBMITTED = "submitted"
     IN_REVIEW = "in_review"

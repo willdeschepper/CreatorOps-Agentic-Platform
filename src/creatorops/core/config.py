@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60
     commerce_webhook_secret: str = Field(default="local-commerce-secret", min_length=12)
+    frontend_base_url: str = "http://localhost:5173"
+    cors_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     local_project_id: str = "creatorops-local"
     pubsub_emulator_host: str | None = "localhost:8085"
@@ -37,6 +39,10 @@ class Settings(BaseSettings):
 
     worker_poll_seconds: float = 1.0
     reconciliation_unknown_after_seconds: int = 30
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
 
     @model_validator(mode="after")
     def prevent_real_cloud_fallback(self) -> "Settings":

@@ -83,8 +83,19 @@ async def authenticate(session: AsyncSession, request: TokenRequest) -> TokenRes
     )
 
 
-async def get_me(session: AsyncSession, principal: Principal) -> tuple[User, Principal]:
+async def get_me(
+    session: AsyncSession, principal: Principal
+) -> tuple[User, Principal, list[SocialProfile]]:
     user = await session.get(User, principal.user_id)
     if user is None:
         raise NotFoundError("user_not_found", "User no longer exists")
-    return user, principal
+    socials = list(
+        (
+            await session.scalars(
+                select(SocialProfile)
+                .where(SocialProfile.creator_id == user.id)
+                .order_by(SocialProfile.network)
+            )
+        ).all()
+    )
+    return user, principal, socials

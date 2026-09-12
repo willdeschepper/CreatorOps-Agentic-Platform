@@ -13,7 +13,12 @@ from creatorops.models.enums import ContentStatus, SocialNetwork
 class ContentEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "content_evidence"
     __table_args__ = (
-        UniqueConstraint("network", "external_post_id", name="uq_content_network_external"),
+        UniqueConstraint(
+            "brand_id",
+            "network",
+            "external_post_id",
+            name="uq_content_brand_network_external",
+        ),
         Index("ix_content_brand_status", "brand_id", "status"),
     )
 

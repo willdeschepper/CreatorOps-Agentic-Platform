@@ -1,8 +1,6 @@
 import re
 from pathlib import Path
 
-from fastapi.routing import APIRoute
-
 from creatorops.main import app
 
 BRUNO_ROOT = Path(__file__).parents[1] / "bruno"
@@ -36,10 +34,10 @@ def _bruno_operations() -> tuple[set[tuple[str, str]], list[Path]]:
 def test_bruno_covers_every_public_creatorops_operation() -> None:
     actual, requests = _bruno_operations()
     expected = {
-        (method, PATH_PARAMETER.sub("{parameter}", route.path))
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        for method in route.methods
+        (method.upper(), PATH_PARAMETER.sub("{parameter}", path))
+        for path, operations in app.openapi()["paths"].items()
+        for method in operations
+        if method.upper() in {"GET", "POST", "PUT", "PATCH", "DELETE"}
     }
 
     assert expected <= actual, f"Missing Bruno operations: {sorted(expected - actual)}"

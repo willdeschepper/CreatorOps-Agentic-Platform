@@ -19,14 +19,21 @@ from creatorops.models.attribution import (
 from creatorops.models.enums import (
     AssetType,
     AttributionReason,
+    CampaignParticipantStatus,
+    CampaignStatus,
     CommerceEventType,
     MembershipStatus,
     OrderStatus,
+    ProgramStatus,
     WebhookProcessingStatus,
 )
 from creatorops.models.identity import Brand
-from creatorops.models.partnerships import AffiliateAsset, ProgramMembership
-from creatorops.models.programs import Program
+from creatorops.models.partnerships import (
+    AffiliateAsset,
+    CampaignParticipant,
+    ProgramMembership,
+)
+from creatorops.models.programs import Campaign, Program
 from creatorops.schemas import CommerceWebhookRequest
 from creatorops.services.commissions import (
     accrue_order_commissions,
@@ -39,6 +46,38 @@ from creatorops.services.shared import enqueue_event
 def canonical_payload_hash(payload: dict[str, object]) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+async def _campaign_asset_valid(
+    session: AsyncSession,
+    *,
+    asset: AffiliateAsset,
+    membership_id: uuid.UUID,
+    occurred_at: datetime,
+) -> bool:
+    if asset.campaign_id is None:
+        return True
+    row = (
+        await session.execute(
+            select(Campaign, CampaignParticipant)
+            .join(
+                CampaignParticipant,
+                CampaignParticipant.campaign_id == Campaign.id,
+            )
+            .where(
+                Campaign.id == asset.campaign_id,
+                Campaign.status == CampaignStatus.ACTIVE,
+                CampaignParticipant.membership_id == membership_id,
+                CampaignParticipant.status == CampaignParticipantStatus.SELECTED,
+            )
+        )
+    ).first()
+    if row is None:
+        return False
+    campaign, _participant = row
+    if campaign.starts_at is not None and occurred_at < campaign.starts_at:
+        return False
+    return campaign.ends_at is None or occurred_at <= campaign.ends_at
 
 
 async def register_click(
@@ -61,12 +100,17 @@ async def register_click(
                     AffiliateAsset.code == code,
                     AffiliateAsset.active.is_(True),
                     ProgramMembership.status == MembershipStatus.ACTIVE,
+                    Program.status == ProgramStatus.ACTIVE,
                 )
             )
         ).first()
         if row is None:
             raise NotFoundError("affiliate_link_not_found", "Affiliate link is inactive or missing")
-        asset, _membership, program = row
+        asset, membership, program = row
+        if not await _campaign_asset_valid(
+            session, asset=asset, membership_id=membership.id, occurred_at=now
+        ):
+            raise NotFoundError("affiliate_link_not_found", "Affiliate link is inactive or missing")
         click = AffiliateClick(
             asset_id=asset.id,
             visitor_id=visitor_id,
@@ -111,12 +155,20 @@ async def _resolve_attribution(
                     AffiliateAsset.code == coupon_code,
                     AffiliateAsset.active.is_(True),
                     ProgramMembership.status == MembershipStatus.ACTIVE,
+                    Program.status == ProgramStatus.ACTIVE,
                     Program.brand_id == brand_id,
                 )
             )
         ).first()
         if coupon_row:
-            coupon_asset, coupon_membership, _ = coupon_row
+            candidate_asset, candidate_membership, _ = coupon_row
+            if await _campaign_asset_valid(
+                session,
+                asset=candidate_asset,
+                membership_id=candidate_membership.id,
+                occurred_at=occurred_at,
+            ):
+                coupon_asset, coupon_membership = candidate_asset, candidate_membership
 
     click: AffiliateClick | None = None
     click_asset: AffiliateAsset | None = None
@@ -132,6 +184,7 @@ async def _resolve_attribution(
                     AffiliateClick.id == click_id,
                     AffiliateAsset.active.is_(True),
                     ProgramMembership.status == MembershipStatus.ACTIVE,
+                    Program.status == ProgramStatus.ACTIVE,
                     Program.brand_id == brand_id,
                 )
             )
@@ -139,7 +192,15 @@ async def _resolve_attribution(
         if click_row:
             maybe_click, maybe_asset, maybe_membership, _ = click_row
             event_time = occurred_at
-            if maybe_click.clicked_at <= event_time <= maybe_click.expires_at:
+            if (
+                maybe_click.clicked_at <= event_time <= maybe_click.expires_at
+                and await _campaign_asset_valid(
+                    session,
+                    asset=maybe_asset,
+                    membership_id=maybe_membership.id,
+                    occurred_at=occurred_at,
+                )
+            ):
                 click = maybe_click
                 click_asset = maybe_asset
                 click_membership = maybe_membership

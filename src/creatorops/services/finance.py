@@ -45,6 +45,7 @@ async def create_payout_batch(
                     func.coalesce(func.sum(LedgerEntry.amount), 0).label("available"),
                 )
                 .where(
+                    LedgerEntry.brand_id == principal.brand_id,
                     LedgerEntry.program_id == program_id,
                     LedgerEntry.bucket == LedgerBucket.AVAILABLE,
                     LedgerEntry.created_at <= cutoff_at,
@@ -364,4 +365,113 @@ async def get_batch(
     if batch is None:
         raise NotFoundError("payout_batch_not_found", "Payout batch was not found")
     payouts = list((await session.scalars(select(Payout).where(Payout.batch_id == batch.id))).all())
+    return batch, payouts
+
+
+async def list_batches(
+    session: AsyncSession,
+    *,
+    brand_id: uuid.UUID,
+    program_id: uuid.UUID | None,
+    status: PayoutBatchStatus | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[PayoutBatch], int]:
+    filters = [PayoutBatch.brand_id == brand_id]
+    if program_id:
+        filters.append(PayoutBatch.program_id == program_id)
+    if status:
+        filters.append(PayoutBatch.status == status)
+    total = int(
+        await session.scalar(select(func.count()).select_from(PayoutBatch).where(*filters)) or 0
+    )
+    rows = list(
+        (
+            await session.scalars(
+                select(PayoutBatch)
+                .where(*filters)
+                .order_by(PayoutBatch.created_at.desc(), PayoutBatch.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return rows, total
+
+
+async def list_payouts(
+    session: AsyncSession,
+    *,
+    brand_id: uuid.UUID,
+    program_id: uuid.UUID | None,
+    batch_id: uuid.UUID | None,
+    membership_id: uuid.UUID | None,
+    status: PayoutStatus | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[Payout], int]:
+    filters = [Payout.brand_id == brand_id]
+    if program_id:
+        filters.append(Payout.program_id == program_id)
+    if batch_id:
+        filters.append(Payout.batch_id == batch_id)
+    if membership_id:
+        filters.append(Payout.membership_id == membership_id)
+    if status:
+        filters.append(Payout.status == status)
+    total = int(await session.scalar(select(func.count()).select_from(Payout).where(*filters)) or 0)
+    rows = list(
+        (
+            await session.scalars(
+                select(Payout)
+                .where(*filters)
+                .order_by(Payout.created_at.desc(), Payout.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return rows, total
+
+
+async def cancel_payout_batch(
+    session: AsyncSession,
+    *,
+    principal: Principal,
+    batch_id: uuid.UUID,
+    comment: str,
+) -> tuple[PayoutBatch, list[Payout]]:
+    assert principal.brand_id is not None
+    now = clock.now()
+    async with session.begin():
+        batch = await session.scalar(
+            select(PayoutBatch)
+            .where(PayoutBatch.id == batch_id, PayoutBatch.brand_id == principal.brand_id)
+            .with_for_update()
+        )
+        if batch is None:
+            raise NotFoundError("payout_batch_not_found", "Payout batch was not found")
+        if batch.status == PayoutBatchStatus.CANCELLED:
+            payouts = list(
+                (await session.scalars(select(Payout).where(Payout.batch_id == batch.id))).all()
+            )
+            return batch, payouts
+        if batch.status != PayoutBatchStatus.DRAFT:
+            raise ConflictError(
+                "payout_batch_not_cancellable", "Only a draft payout batch can be cancelled"
+            )
+        batch.status = PayoutBatchStatus.CANCELLED
+        payouts = list(
+            (await session.scalars(select(Payout).where(Payout.batch_id == batch.id))).all()
+        )
+        add_audit(
+            session,
+            brand_id=principal.brand_id,
+            actor_user_id=principal.user_id,
+            action="payout.batch_cancelled",
+            entity_type="payout_batch",
+            entity_id=batch.id,
+            data={"comment": comment},
+            now=now,
+        )
     return batch, payouts

@@ -18,6 +18,7 @@ from creatorops.models.identity import Brand, BrandMembership, SocialProfile, Us
 from creatorops.models.listening import ContentEvidence
 from creatorops.models.partnerships import (
     AffiliateAsset,
+    CampaignParticipant,
     CreatorApplication,
     CreatorInvitation,
     ProgramMembership,
@@ -33,6 +34,7 @@ __all__ = [
     "Brand",
     "BrandMembership",
     "Campaign",
+    "CampaignParticipant",
     "CommerceWebhookEvent",
     "Commission",
     "CommissionPlan",

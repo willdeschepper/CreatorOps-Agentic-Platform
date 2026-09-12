@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,12 +11,13 @@ from creatorops.core.security import Principal
 from creatorops.core.time import clock
 from creatorops.models.commissions import BonusRule, CommissionPlan, CommissionTier
 from creatorops.models.enums import (
+    CampaignParticipantStatus,
     CampaignStatus,
     CommissionMetric,
     MembershipStatus,
     ProgramStatus,
 )
-from creatorops.models.partnerships import AffiliateAsset, ProgramMembership
+from creatorops.models.partnerships import AffiliateAsset, CampaignParticipant, ProgramMembership
 from creatorops.models.programs import Campaign, Program, ProgramTerms
 from creatorops.schemas import (
     CampaignCreateRequest,
@@ -73,24 +74,201 @@ async def create_program(
     return program
 
 
-async def list_programs(session: AsyncSession, brand_id: uuid.UUID) -> list[Program]:
-    return list(
+async def list_programs(
+    session: AsyncSession,
+    brand_id: uuid.UUID,
+    *,
+    status: ProgramStatus | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[Program], int]:
+    filters = [Program.brand_id == brand_id]
+    if status:
+        filters.append(Program.status == status)
+    total = int(
+        await session.scalar(select(func.count()).select_from(Program).where(*filters)) or 0
+    )
+    rows = list(
         (
             await session.scalars(
-                select(Program).where(Program.brand_id == brand_id).order_by(Program.created_at)
+                select(Program)
+                .where(*filters)
+                .order_by(Program.created_at.desc(), Program.id.desc())
+                .limit(limit)
+                .offset(offset)
             )
         ).all()
     )
+    return rows, total
 
 
-async def discover_programs(session: AsyncSession) -> list[Program]:
-    return list(
+async def discover_programs(
+    session: AsyncSession, *, limit: int, offset: int
+) -> tuple[list[Program], int]:
+    filters = [Program.status == ProgramStatus.ACTIVE]
+    total = int(
+        await session.scalar(select(func.count()).select_from(Program).where(*filters)) or 0
+    )
+    rows = list(
         (
             await session.scalars(
-                select(Program).where(Program.status == ProgramStatus.ACTIVE).order_by(Program.name)
+                select(Program)
+                .where(*filters)
+                .order_by(Program.name, Program.id)
+                .limit(limit)
+                .offset(offset)
             )
         ).all()
     )
+    return rows, total
+
+
+async def get_visible_program(
+    session: AsyncSession, *, principal: Principal, program_id: uuid.UUID
+) -> Program:
+    if principal.brand_id is not None:
+        return await get_program_for_brand(session, program_id, principal.brand_id)
+    program = await session.get(Program, program_id)
+    if program is None:
+        raise NotFoundError("program_not_found", "Program was not found")
+    membership = await session.scalar(
+        select(ProgramMembership.id).where(
+            ProgramMembership.program_id == program_id,
+            ProgramMembership.creator_id == principal.user_id,
+        )
+    )
+    if program.status != ProgramStatus.ACTIVE and membership is None:
+        raise NotFoundError("program_not_found", "Program was not found")
+    return program
+
+
+async def get_campaign_for_brand(
+    session: AsyncSession, *, brand_id: uuid.UUID, campaign_id: uuid.UUID
+) -> Campaign:
+    campaign = await session.scalar(
+        select(Campaign)
+        .join(Program, Program.id == Campaign.program_id)
+        .where(Campaign.id == campaign_id, Program.brand_id == brand_id)
+    )
+    if campaign is None:
+        raise NotFoundError("campaign_not_found", "Campaign was not found")
+    return campaign
+
+
+async def get_visible_campaign(
+    session: AsyncSession, *, principal: Principal, campaign_id: uuid.UUID
+) -> Campaign:
+    campaign = await session.get(Campaign, campaign_id)
+    if campaign is None:
+        raise NotFoundError("campaign_not_found", "Campaign was not found")
+    await get_visible_program(session, principal=principal, program_id=campaign.program_id)
+    return campaign
+
+
+async def list_campaigns(
+    session: AsyncSession,
+    *,
+    principal: Principal,
+    program_id: uuid.UUID,
+    status: CampaignStatus | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[Campaign], int]:
+    await get_visible_program(session, principal=principal, program_id=program_id)
+    filters = [Campaign.program_id == program_id]
+    if status:
+        filters.append(Campaign.status == status)
+    total = int(
+        await session.scalar(select(func.count()).select_from(Campaign).where(*filters)) or 0
+    )
+    rows = list(
+        (
+            await session.scalars(
+                select(Campaign)
+                .where(*filters)
+                .order_by(Campaign.created_at.desc(), Campaign.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return rows, total
+
+
+async def list_terms(
+    session: AsyncSession,
+    *,
+    principal: Principal,
+    program_id: uuid.UUID,
+    limit: int,
+    offset: int,
+) -> tuple[list[ProgramTerms], int]:
+    await get_visible_program(session, principal=principal, program_id=program_id)
+    filters = [ProgramTerms.program_id == program_id]
+    total = int(
+        await session.scalar(select(func.count()).select_from(ProgramTerms).where(*filters)) or 0
+    )
+    rows = list(
+        (
+            await session.scalars(
+                select(ProgramTerms)
+                .where(*filters)
+                .order_by(ProgramTerms.version.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return rows, total
+
+
+async def list_commission_plans(
+    session: AsyncSession,
+    *,
+    principal: Principal,
+    program_id: uuid.UUID,
+    limit: int,
+    offset: int,
+) -> tuple[list[CommissionPlan], int]:
+    await get_visible_program(session, principal=principal, program_id=program_id)
+    filters = [CommissionPlan.program_id == program_id]
+    total = int(
+        await session.scalar(select(func.count()).select_from(CommissionPlan).where(*filters)) or 0
+    )
+    rows = list(
+        (
+            await session.scalars(
+                select(CommissionPlan)
+                .where(*filters)
+                .order_by(CommissionPlan.active_from.desc(), CommissionPlan.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return rows, total
+
+
+async def get_commission_plan_detail(
+    session: AsyncSession, *, principal: Principal, plan_id: uuid.UUID
+) -> tuple[CommissionPlan, list[CommissionTier], list[BonusRule]]:
+    plan = await session.get(CommissionPlan, plan_id)
+    if plan is None:
+        raise NotFoundError("commission_plan_not_found", "Commission plan was not found")
+    await get_visible_program(session, principal=principal, program_id=plan.program_id)
+    tiers = list(
+        (
+            await session.scalars(
+                select(CommissionTier)
+                .where(CommissionTier.plan_id == plan.id)
+                .order_by(CommissionTier.threshold_gmv)
+            )
+        ).all()
+    )
+    bonuses = list(
+        (await session.scalars(select(BonusRule).where(BonusRule.plan_id == plan.id))).all()
+    )
+    return plan, tiers, bonuses
 
 
 async def change_program_status(
@@ -140,6 +318,57 @@ async def change_program_status(
                 )
         previous = program.status
         program.status = target
+        if target in {ProgramStatus.PAUSED, ProgramStatus.CLOSED}:
+            await session.execute(
+                update(AffiliateAsset)
+                .where(
+                    AffiliateAsset.membership_id.in_(
+                        select(ProgramMembership.id).where(
+                            ProgramMembership.program_id == program.id
+                        )
+                    )
+                )
+                .values(active=False)
+            )
+        elif target == ProgramStatus.ACTIVE:
+            await session.execute(
+                update(AffiliateAsset)
+                .where(
+                    AffiliateAsset.membership_id.in_(
+                        select(ProgramMembership.id).where(
+                            ProgramMembership.program_id == program.id,
+                            ProgramMembership.status == MembershipStatus.ACTIVE,
+                        )
+                    ),
+                    AffiliateAsset.campaign_id.is_(None),
+                )
+                .values(active=True)
+            )
+            await session.execute(
+                update(AffiliateAsset)
+                .where(
+                    AffiliateAsset.campaign_id.in_(
+                        select(Campaign.id).where(
+                            Campaign.program_id == program.id,
+                            Campaign.status == CampaignStatus.ACTIVE,
+                        )
+                    ),
+                    AffiliateAsset.membership_id.in_(
+                        select(ProgramMembership.id).where(
+                            ProgramMembership.program_id == program.id,
+                            ProgramMembership.status == MembershipStatus.ACTIVE,
+                        )
+                    ),
+                    exists(
+                        select(CampaignParticipant.id).where(
+                            CampaignParticipant.campaign_id == AffiliateAsset.campaign_id,
+                            CampaignParticipant.membership_id == AffiliateAsset.membership_id,
+                            CampaignParticipant.status == CampaignParticipantStatus.SELECTED,
+                        )
+                    ),
+                )
+                .values(active=True)
+            )
         add_audit(
             session,
             brand_id=principal.brand_id,
@@ -282,8 +511,38 @@ async def change_campaign_status(
                 "invalid_campaign_transition",
                 f"Cannot transition campaign from {campaign.status.value} to {target.value}",
             )
+        program = await session.get(Program, campaign.program_id)
+        assert program is not None
+        if target == CampaignStatus.ACTIVE and program.status != ProgramStatus.ACTIVE:
+            raise ConflictError("program_inactive", "Program must be active")
         previous = campaign.status
         campaign.status = target
+        await session.execute(
+            update(AffiliateAsset)
+            .where(AffiliateAsset.campaign_id == campaign.id)
+            .values(active=False)
+        )
+        if target == CampaignStatus.ACTIVE:
+            await session.execute(
+                update(AffiliateAsset)
+                .where(
+                    AffiliateAsset.campaign_id == campaign.id,
+                    AffiliateAsset.membership_id.in_(
+                        select(ProgramMembership.id).where(
+                            ProgramMembership.status == MembershipStatus.ACTIVE,
+                            ProgramMembership.program_id == campaign.program_id,
+                        )
+                    ),
+                    exists(
+                        select(CampaignParticipant.id).where(
+                            CampaignParticipant.campaign_id == campaign.id,
+                            CampaignParticipant.membership_id == AffiliateAsset.membership_id,
+                            CampaignParticipant.status == CampaignParticipantStatus.SELECTED,
+                        )
+                    ),
+                )
+                .values(active=True)
+            )
         add_audit(
             session,
             brand_id=principal.brand_id,

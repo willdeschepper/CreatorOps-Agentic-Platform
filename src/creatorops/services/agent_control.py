@@ -185,11 +185,176 @@ async def list_findings(
     *,
     brand_id: uuid.UUID,
     state: FindingState | None = None,
-) -> list[Finding]:
+    finding_type: FindingType | None = None,
+    limit: int = 25,
+    offset: int = 0,
+) -> tuple[list[Finding], int]:
     statement = select(Finding).where(Finding.brand_id == brand_id)
+    filters = [Finding.brand_id == brand_id]
     if state:
-        statement = statement.where(Finding.state == state)
-    return list((await session.scalars(statement.order_by(Finding.created_at.desc()))).all())
+        filters.append(Finding.state == state)
+    if finding_type:
+        filters.append(Finding.finding_type == finding_type)
+    total = int(
+        await session.scalar(select(func.count()).select_from(Finding).where(*filters)) or 0
+    )
+    rows = list(
+        (
+            await session.scalars(
+                statement.where(*filters)
+                .order_by(Finding.created_at.desc(), Finding.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return rows, total
+
+
+async def list_reconciliation_runs(
+    session: AsyncSession,
+    *,
+    brand_id: uuid.UUID,
+    status: ReconciliationRunStatus | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[ReconciliationRun], int]:
+    filters = [ReconciliationRun.brand_id == brand_id]
+    if status:
+        filters.append(ReconciliationRun.status == status)
+    total = int(
+        await session.scalar(select(func.count()).select_from(ReconciliationRun).where(*filters))
+        or 0
+    )
+    rows = list(
+        (
+            await session.scalars(
+                select(ReconciliationRun)
+                .where(*filters)
+                .order_by(ReconciliationRun.started_at.desc(), ReconciliationRun.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return rows, total
+
+
+async def get_reconciliation_run(
+    session: AsyncSession, *, brand_id: uuid.UUID, run_id: uuid.UUID
+) -> ReconciliationRun:
+    run = await session.scalar(
+        select(ReconciliationRun).where(
+            ReconciliationRun.id == run_id, ReconciliationRun.brand_id == brand_id
+        )
+    )
+    if run is None:
+        raise NotFoundError("reconciliation_run_not_found", "Reconciliation run was not found")
+    return run
+
+
+async def get_finding(
+    session: AsyncSession, *, brand_id: uuid.UUID, finding_id: uuid.UUID
+) -> Finding:
+    finding = await session.scalar(
+        select(Finding).where(Finding.id == finding_id, Finding.brand_id == brand_id)
+    )
+    if finding is None:
+        raise NotFoundError("finding_not_found", "Finding was not found")
+    return finding
+
+
+async def list_proposals(
+    session: AsyncSession,
+    *,
+    brand_id: uuid.UUID,
+    state: ProposalState | None,
+    finding_id: uuid.UUID | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[Proposal], int]:
+    filters = [Finding.brand_id == brand_id]
+    if state:
+        filters.append(Proposal.state == state)
+    if finding_id:
+        filters.append(Proposal.finding_id == finding_id)
+    count = (
+        select(func.count(Proposal.id))
+        .join(Finding, Finding.id == Proposal.finding_id)
+        .where(*filters)
+    )
+    total = int(await session.scalar(count) or 0)
+    rows = list(
+        (
+            await session.scalars(
+                select(Proposal)
+                .join(Finding, Finding.id == Proposal.finding_id)
+                .where(*filters)
+                .order_by(Proposal.created_at.desc(), Proposal.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return rows, total
+
+
+async def get_proposal_detail(
+    session: AsyncSession, *, brand_id: uuid.UUID, proposal_id: uuid.UUID
+) -> tuple[Proposal, list[GateRun]]:
+    proposal = await session.scalar(
+        select(Proposal)
+        .join(Finding, Finding.id == Proposal.finding_id)
+        .where(Proposal.id == proposal_id, Finding.brand_id == brand_id)
+    )
+    if proposal is None:
+        raise NotFoundError("proposal_not_found", "Proposal was not found")
+    gates = list(
+        (
+            await session.scalars(
+                select(GateRun)
+                .where(GateRun.proposal_id == proposal.id)
+                .order_by(GateRun.created_at.desc(), GateRun.id.desc())
+            )
+        ).all()
+    )
+    return proposal, gates
+
+
+async def dismiss_finding(
+    session: AsyncSession,
+    *,
+    principal: Principal,
+    finding_id: uuid.UUID,
+    comment: str,
+) -> Finding:
+    assert principal.brand_id is not None
+    now = clock.now()
+    async with session.begin():
+        finding = await session.scalar(
+            select(Finding)
+            .where(Finding.id == finding_id, Finding.brand_id == principal.brand_id)
+            .with_for_update()
+        )
+        if finding is None:
+            raise NotFoundError("finding_not_found", "Finding was not found")
+        if finding.state == FindingState.DISMISSED:
+            return finding
+        if finding.state == FindingState.RESOLVED:
+            raise ConflictError("finding_resolved", "Resolved findings cannot be dismissed")
+        finding.state = FindingState.DISMISSED
+        finding.resolved_at = now
+        add_audit(
+            session,
+            brand_id=principal.brand_id,
+            actor_user_id=principal.user_id,
+            action="agent.finding_dismissed",
+            entity_type="agent_finding",
+            entity_id=finding.id,
+            data={"comment": comment},
+            now=now,
+        )
+    return finding
 
 
 async def generate_proposal(

@@ -17,6 +17,7 @@ auth:bearer {
 tests {
   test("Created program is visible inside the active brand", function () {
     expect(res.status).to.equal(200);
-    expect(res.body.some((program) => program.id === bru.getEnvVar("program_id"))).to.equal(true);
+    expect(res.body.items.some((program) => program.id === bru.getEnvVar("program_id"))).to.equal(true);
+    expect(res.body.total).to.be.greaterThan(0);
   });
 }

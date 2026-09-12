@@ -222,6 +222,21 @@ async def run_demo() -> dict[str, Any]:
             token=owner_token,
             json_body={"status": "active"},
         )
+        await _request(
+            client,
+            "POST",
+            f"/v1/programs/{program_id}/commission-plans",
+            token=finance_token,
+            json_body={
+                "campaign_id": str(campaign["id"]),
+                "base_rate": "0.20",
+                "return_window_days": 0,
+                "payout_minimum": "1.00",
+                "active_from": (now - timedelta(minutes=1)).isoformat(),
+                "tiers": [],
+                "bonuses": [],
+            },
+        )
 
         membership_a, assets_a = await _activate_creator(
             client,
@@ -231,7 +246,7 @@ async def run_demo() -> dict[str, Any]:
             terms_id=str(terms["id"]),
             motivation="I create practical technology content.",
         )
-        _membership_b, assets_b = await _activate_creator(
+        membership_b, _assets_b = await _activate_creator(
             client,
             creator_token=creator_b_token,
             owner_token=owner_token,
@@ -239,8 +254,39 @@ async def run_demo() -> dict[str, Any]:
             terms_id=str(terms["id"]),
             motivation="I create backend architecture content.",
         )
-        coupon_a = next(asset for asset in assets_a if asset["asset_type"] == "coupon")
-        link_b = next(asset for asset in assets_b if asset["asset_type"] == "link")
+        await _request(
+            client,
+            "POST",
+            f"/v1/campaigns/{campaign['id']}/participants",
+            token=owner_token,
+            json_body={"membership_ids": [membership_a, membership_b]},
+        )
+        assets_a = (
+            await _request(
+                client,
+                "GET",
+                f"/v1/memberships/{membership_a}/assets",
+                token=creator_a_token,
+            )
+        ).json()
+        assets_b = (
+            await _request(
+                client,
+                "GET",
+                f"/v1/memberships/{membership_b}/assets",
+                token=creator_b_token,
+            )
+        ).json()
+        coupon_a = next(
+            asset
+            for asset in assets_a
+            if asset["asset_type"] == "coupon" and asset["campaign_id"] == str(campaign["id"])
+        )
+        link_b = next(
+            asset
+            for asset in assets_b
+            if asset["asset_type"] == "link" and asset["campaign_id"] == str(campaign["id"])
+        )
         click = await _request(client, "GET", f"/r/{link_b['code']}?visitor=demo-shopper")
         click_id = click.headers["X-CreatorOps-Click-ID"]
 
@@ -306,9 +352,9 @@ async def run_demo() -> dict[str, Any]:
         )
         content_rows: list[dict[str, Any]] = []
         for _ in range(30):
-            content_rows = (await _request(client, "GET", "/v1/posts", token=owner_token)).json()
+            content_page = (await _request(client, "GET", "/v1/posts", token=owner_token)).json()
             content_rows = [
-                row for row in content_rows if row["external_post_id"] == f"ig-{suffix}"
+                row for row in content_page["items"] if row["external_post_id"] == f"ig-{suffix}"
             ]
             if content_rows:
                 break
@@ -322,6 +368,42 @@ async def run_demo() -> dict[str, Any]:
             token=owner_token,
             json_body={"decision": "approved"},
         )
+        await _request(
+            client,
+            "POST",
+            "/v1/listening/imports",
+            token=owner_token,
+            json_body={
+                "posts": [
+                    {
+                        "network": "instagram",
+                        "external_post_id": f"ig-{suffix}",
+                        "handle": f"alice_{suffix}",
+                        "program_id": program_id,
+                        "campaign_id": str(campaign["id"]),
+                        "published_at": now.isoformat(),
+                        "caption": "CreatorOps metrics refresh",
+                        "url": "https://example.test/local-post",
+                        "metrics": {"likes": 400, "comments": 22, "views": 5000},
+                    }
+                ]
+            },
+        )
+        refreshed_content: dict[str, Any] = {}
+        for _ in range(30):
+            refreshed_content = (
+                await _request(
+                    client,
+                    "GET",
+                    f"/v1/posts/{content_rows[0]['id']}",
+                    token=owner_token,
+                )
+            ).json()
+            if refreshed_content["metrics"].get("views") == 5000:
+                break
+            await asyncio.sleep(0.25)
+        if refreshed_content.get("status") != "approved":
+            raise DemoFailure("Social reimport erased the human review")
 
         settlement_at = now + timedelta(days=1)
         await _request(
@@ -381,7 +463,7 @@ async def run_demo() -> dict[str, Any]:
                 token=finance_token,
             )
         ).json()
-        finding = next(row for row in findings if row["payout_id"] == payout_id)
+        finding = next(row for row in findings["items"] if row["payout_id"] == payout_id)
         proposal = (
             await _request(
                 client,
@@ -421,6 +503,22 @@ async def run_demo() -> dict[str, Any]:
                 token=owner_token,
             )
         ).json()
+        campaign_report = (
+            await _request(
+                client,
+                "GET",
+                f"/v1/reports/campaigns/{campaign['id']}/overview",
+                token=owner_token,
+            )
+        ).json()
+        membership_report = (
+            await _request(
+                client,
+                "GET",
+                f"/v1/reports/memberships/{membership_a}/overview",
+                token=creator_a_token,
+            )
+        ).json()
         balance = (
             await _request(
                 client,
@@ -438,7 +536,10 @@ async def run_demo() -> dict[str, Any]:
             "finding_type": finding["finding_type"],
             "gate_result": gate["gate"]["result"],
             "proposal_state": executed["state"],
+            "content_review_preserved_after_reimport": refreshed_content["status"] == "approved",
             "report": report,
+            "campaign_report": campaign_report,
+            "membership_report": membership_report,
             "creator_balance": balance,
         }
 

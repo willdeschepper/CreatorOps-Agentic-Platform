@@ -17,6 +17,6 @@ auth:bearer {
 tests {
   test("Original finding is resolved but remains auditable", function () {
     expect(res.status).to.equal(200);
-    expect(res.body.some((finding) => finding.id === bru.getEnvVar("finding_id"))).to.equal(true);
+    expect(res.body.items.some((finding) => finding.id === bru.getEnvVar("finding_id"))).to.equal(true);
   });
 }

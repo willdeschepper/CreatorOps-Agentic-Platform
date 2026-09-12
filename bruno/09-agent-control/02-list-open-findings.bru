@@ -15,7 +15,7 @@ auth:bearer {
 }
 
 script:post-response {
-  const finding = res.body.find((item) => item.payout_id === bru.getEnvVar("payout_id"));
+  const finding = res.body.items.find((item) => item.payout_id === bru.getEnvVar("payout_id"));
   if (finding) {
     bru.setEnvVar("finding_id", finding.id);
   }
@@ -23,7 +23,7 @@ script:post-response {
 
 tests {
   test("Finding contains immutable provider evidence", function () {
-    const finding = res.body.find((item) => item.payout_id === bru.getEnvVar("payout_id"));
+    const finding = res.body.items.find((item) => item.payout_id === bru.getEnvVar("payout_id"));
     expect(res.status).to.equal(200);
     expect(finding.finding_type).to.equal("provider_confirmed_internal_unknown");
     expect(finding.evidence_hash).to.be.a("string");

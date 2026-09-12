@@ -1,5 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from creatorops.core.config import settings
 from creatorops.core.errors import install_error_handlers
@@ -16,6 +17,7 @@ from creatorops.routers import (
     finance,
     health,
     listening,
+    operations,
     partnerships,
     programs,
     reports,
@@ -33,6 +35,13 @@ def create_app() -> FastAPI:
         ),
     )
     install_error_handlers(app)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     install_http_observability(app)
     app.include_router(health.router)
     app.include_router(commerce.redirect_router)
@@ -43,6 +52,7 @@ def create_app() -> FastAPI:
         commerce.router,
         commissions.router,
         listening.router,
+        operations.router,
         finance.router,
         agent.router,
         reports.router,

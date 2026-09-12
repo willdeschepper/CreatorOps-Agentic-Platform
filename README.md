@@ -7,7 +7,7 @@ vaga — não replica produto, marca ou interface de outra empresa.
 O caminho demonstrado é:
 
 ```text
-programa → creator → campanha → cupom/link → venda → comissão → payout
+programa → creator → cupom/link → venda → comissão → payout
         → inconsistência → proposta determinística → gates → aprovação → reconciliação
 ```
 
@@ -32,6 +32,44 @@ Nenhuma conta cloud, LLM, rede social ou transferência real é usada.
 Todos os nomes, identidades, pedidos, posts e pagamentos da demonstração são sintéticos.
 Materiais pessoais de pesquisa permanecem em `docs/private/`, que é ignorada pelo Git e não
 faz parte da distribuição pública.
+
+## Fluxo de negócio
+
+A marca organiza o programa; Operações ativa creators; o sistema atribui vendas e calcula
+comissões; Financeiro aprova os pagamentos. As campanhas são ativações opcionais do programa.
+
+```mermaid
+flowchart TB
+    Marca["Marca"] --> Programa["Operações / Financeiro: configurar programa<br/>Termos e plano de comissão"]
+    Programa -. "ativação opcional" .-> Campanha["Campanhas do programa"]
+    Programa --> Parceria["Creator se candidata<br/>Operações aprova a candidatura"]
+    Parceria --> Ativacao["Creator aceita os termos<br/>Sistema ativa parceria, cupom e link"]
+    Ativacao --> Venda["Sistema: atribuir venda paga<br/>Cupom válido tem prioridade sobre clique"]
+    Venda --> Comissao["Sistema: calcular comissão<br/>Pendente → prazo de devolução → disponível"]
+    Comissao --> Pagamento["Financeiro: aprovar lote e reservar saldo<br/>Sistema solicita pagamento local"]
+    Pagamento --> Resultado{"Resultado do pagamento?"}
+    Resultado -->|Confirmado| Pago["Sistema: registrar saldo pago"]
+    Resultado -->|Falhou| Liberado["Sistema: liberar reserva<br/>Saldo volta a disponível"]
+    Resultado -->|Desconhecido| Conciliacao["Sistema: manter reserva<br/>Reconciliar e registrar divergência"]
+    Conciliacao --> Proposta["Sistema: propor correção<br/>Executar validações determinísticas"]
+    Proposta -->|"Validações aprovadas"| Humano["Financeiro: aprovar com comentário<br/>Solicitar execução separadamente"]
+    Humano --> Correcao["Sistema: revalidar e aplicar correção<br/>Confirmar pagamento ou liberar reserva"]
+    Ativacao -. "trilha de conteúdo" .-> Conteudo["Operações: importar posts locais<br/>Sistema identifica o creator"]
+    Conteudo --> Revisao["Operações: revisar conteúdo"]
+    Revisao -->|Aprovado| Relatorio["Resultados do programa<br/>Vendas, conteúdo, comissões e pagamentos"]
+    Venda -. "vendas" .-> Relatorio
+    Comissao -. "saldos" .-> Relatorio
+    Pago --> Relatorio
+    Liberado --> Relatorio
+    Correcao --> Relatorio
+```
+
+O conteúdo social segue uma trilha própria: sua aprovação alimenta os relatórios, mas não
+condiciona a comissão de uma venda. Na reconciliação, a aprovação humana e a execução são
+ações separadas; propostas bloqueadas ou desatualizadas não aplicam correções.
+
+Veja os [seis fluxos detalhados das regras de negócio](docs/domain-rules.md), com decisões,
+responsáveis, estados e tratamento das exceções.
 
 ## Arquitetura local
 

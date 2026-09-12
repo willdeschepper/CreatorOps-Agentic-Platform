@@ -11,7 +11,7 @@ and must never be reused in another environment.
 
 ## Before publishing or sharing changes
 
-- Keep `.env`, private keys, database files, logs and `docs/private/` out of Git.
+- Keep `.env`, private keys, database files, logs and local-only materials out of Git.
 - Use only synthetic fixtures and `@creatorops.dev` identities.
 - Do not commit exports from Postgres, Firestore, Jaeger or the provider simulator.
 - Run `make verify` and inspect `git status --ignored` before pushing.

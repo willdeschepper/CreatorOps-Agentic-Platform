@@ -30,8 +30,18 @@ programa → creator → cupom/link → venda → comissão → payout
 Nenhuma conta cloud, LLM, rede social ou transferência real é usada.
 
 Todos os nomes, identidades, pedidos, posts e pagamentos da demonstração são sintéticos.
-Materiais pessoais de pesquisa permanecem em `docs/private/`, que é ignorada pelo Git e não
-faz parte da distribuição pública.
+
+## Onde está o agentic?
+
+O nome “Agentic Platform” descreve o formato do pipeline de decisão, não uma dependência de
+modelo de linguagem. Quando uma divergência financeira aparece, o sistema registra as
+evidências, gera uma proposta estruturada, executa gates determinísticos, exige aprovação
+humana, revalida o estado e só então aplica a correção com auditoria e lançamentos
+append-only no ledger.
+
+O MVP usa um gerador determinístico local e não chama uma LLM. Futuramente, uma LLM poderá
+ser conectada ao ponto de geração da proposta para sugerir explicações ou ações, mas nenhuma
+garantia de idempotência, autorização, consistência financeira ou segurança depende dela.
 
 ## Fluxo de negócio
 
@@ -208,7 +218,6 @@ fixtures/          posts sociais simulados
 bruno/             coleção HTTP local
 tests/             unidade, integração, concorrência e jornada financeira
 docs/              arquitetura e regras de negócio publicáveis
-docs/private/      pesquisa local e pessoal, sempre ignorada pelo Git
 ```
 
 ## Próxima fase

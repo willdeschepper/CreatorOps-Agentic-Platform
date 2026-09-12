@@ -17,7 +17,3 @@ Documentação pública do protótipo:
 4. [Lote, reserva e pagamento](domain-rules.md#pagamento)
 5. [Reconciliação e aprovação humana](domain-rules.md#controle-agêntico)
 6. [Conteúdo social e mensuração](domain-rules.md#conteúdo-e-mensuração)
-
-Materiais de pesquisa, documentos de vaga e anotações pessoais ficam somente em
-`docs/private/`. Essa pasta é ignorada pelo Git para impedir publicação acidental de dados
-pessoais ou de preparação para entrevista.

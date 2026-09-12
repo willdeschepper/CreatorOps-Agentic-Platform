@@ -227,7 +227,13 @@ tests/             unidade, integração, concorrência e jornada financeira
 docs/              arquitetura e regras de negócio publicáveis
 ```
 
-## Próxima fase
+## Frontend local
 
-O frontend será separado, usando React puro, TanStack Query/Router, Tailwind e shadcn/ui.
-Não há frontend nem preparação de deploy neste repositório por decisão de escopo.
+A aplicação em `frontend/` usa React, Vite, TanStack Query/Router, Tailwind e componentes
+shadcn/ui personalizados. Com a stack local ativa, execute `npm ci` e `npm run dev`
+nessa pasta e abra `http://localhost:5173`.
+
+O [guia do frontend](frontend/README.md) documenta acesso por papel, testes, contratos e
+o comando `npm run demo:unknown`, que prepara um payout desconhecido para percorrer a
+reconciliação pela interface. O [spec.md](spec.md) permanece como referência de escopo.
+Não há deploy ou serviços externos no runtime.

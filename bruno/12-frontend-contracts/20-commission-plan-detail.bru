@@ -1,0 +1,22 @@
+meta {
+  name: Commission plan detail
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{base_url}}/v1/commission-plans/{{commission_plan_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+tests {
+  test("Commission plan detail: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}

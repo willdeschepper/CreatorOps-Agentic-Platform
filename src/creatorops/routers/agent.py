@@ -190,7 +190,6 @@ async def get_proposal(
     return ProposalDetailResponse(
         **ProposalResponse.model_validate(proposal).model_dump(),
         evidence_hash=proposal.evidence_hash,
-        created_at=proposal.created_at,
         approved_by=proposal.approved_by,
         approval_comment=proposal.approval_comment,
         approved_at=proposal.approved_at,

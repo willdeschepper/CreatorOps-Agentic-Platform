@@ -7,6 +7,8 @@ Documentação pública do protótipo:
   a comissão, o pagamento e a reconciliação.
 - [domain-rules.md](domain-rules.md): seis diagramas detalhados com responsáveis, decisões,
   estados, invariantes e regras financeiras.
+- [frontend-handoff.md](frontend-handoff.md): papéis, telas, contratos HTTP, paginação e erros
+  para construir a interface local sem mocks.
 - [../bruno/README.md](../bruno/README.md): execução da jornada completa pelo Bruno.
 
 ## Fluxos de negócio

@@ -361,10 +361,7 @@ async def inspect_invitation(
 ) -> InvitationInspectResponse:
     invitation, program, brand = await partnerships.inspect_invitation(session, token=token)
     effective_status = invitation.status
-    if (
-        effective_status == InvitationStatus.PENDING
-        and invitation.expires_at <= clock.now()
-    ):
+    if effective_status == InvitationStatus.PENDING and invitation.expires_at <= clock.now():
         effective_status = InvitationStatus.EXPIRED
     return InvitationInspectResponse(
         program_id=program.id,

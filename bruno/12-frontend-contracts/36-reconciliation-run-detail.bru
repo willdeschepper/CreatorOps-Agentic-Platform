@@ -1,0 +1,22 @@
+meta {
+  name: Reconciliation run detail
+  type: http
+  seq: 36
+}
+
+get {
+  url: {{base_url}}/v1/reconciliation/runs/{{reconciliation_run_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+tests {
+  test("Reconciliation run detail: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}

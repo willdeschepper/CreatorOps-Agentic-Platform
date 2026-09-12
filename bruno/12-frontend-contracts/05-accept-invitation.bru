@@ -1,0 +1,26 @@
+meta {
+  name: Accept invitation
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/v1/invitations/{{invite_token}}/accept
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{invite_creator_token}}
+}
+
+script:post-response {
+  bru.setEnvVar("invited_membership_id", res.body.membership.id);
+}
+
+tests {
+  test("Accept invitation: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.exist;
+  });
+}

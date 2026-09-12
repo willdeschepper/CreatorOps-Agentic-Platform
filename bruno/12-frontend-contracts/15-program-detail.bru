@@ -1,0 +1,22 @@
+meta {
+  name: Program detail
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{base_url}}/v1/programs/{{program_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{owner_token}}
+}
+
+tests {
+  test("Program detail: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}

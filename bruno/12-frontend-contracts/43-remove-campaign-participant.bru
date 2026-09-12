@@ -1,0 +1,29 @@
+meta {
+  name: Remove campaign participant
+  type: http
+  seq: 43
+}
+
+post {
+  url: {{base_url}}/v1/campaigns/{{campaign_id}}/participants/{{membership_a_id}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "status": "removed",
+    "comment": "Bruno verifies campaign removal."
+  }
+}
+
+tests {
+  test("Remove campaign participant: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.exist;
+  });
+}

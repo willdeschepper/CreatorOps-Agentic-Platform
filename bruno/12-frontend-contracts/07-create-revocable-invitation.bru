@@ -1,0 +1,33 @@
+meta {
+  name: Create revocable invitation
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/invitations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "email": "{{revoke_email}}",
+    "expires_in_hours": 48
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("revoke_invitation_id", res.body.id);
+}
+
+tests {
+  test("Create revocable invitation: HTTP contract", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.exist;
+  });
+}

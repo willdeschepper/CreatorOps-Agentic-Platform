@@ -1,0 +1,44 @@
+meta {
+  name: Reimport approved post with new metrics
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/v1/listening/imports
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "posts": [
+      {
+        "network": "instagram",
+        "external_post_id": "{{social_external_id}}",
+        "handle": "{{creator_a_handle}}",
+        "program_id": "{{program_id}}",
+        "campaign_id": "{{campaign_id}}",
+        "published_at": "{{commerce_occurred_at}}",
+        "caption": "CreatorOps local campaign post imported by Bruno",
+        "url": "https://example.test/bruno-post",
+        "metrics": {
+          "likes": 500,
+          "comments": 25,
+          "views": 5000
+        }
+      }
+    ]
+  }
+}
+
+tests {
+  test("Reimport is accepted without replacing human review", function () {
+    expect(res.status).to.equal(202);
+    expect(res.body.posts).to.equal(1);
+  });
+}

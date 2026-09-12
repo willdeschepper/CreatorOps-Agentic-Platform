@@ -18,12 +18,17 @@ requests seguintes. Portanto, não é necessário copiar UUIDs manualmente.
 
 ```text
 setup → autenticação → programa → creators → clique → venda → listening
-      → liquidação → payout unknown → reconciliação → gates → aprovação → execução
+      → reimportação segura → liquidação → payout unknown → reconciliação
+      → gates → aprovação → execução → contratos de leitura e gestão
 ```
 
 O webhook é assinado localmente no pre-request script com o segredo público do ambiente de
 desenvolvimento. Os waits usados na ingestão e no payout existem porque o worker e o Pub/Sub
 Emulator são assíncronos.
 
-Os requests de `12-contract-checks` esperam respostas `401`, `403` e `409`; esses status são
-sucesso do teste, pois comprovam segurança e idempotência.
+Os requests de `11-contract-checks` esperam respostas `401`, `403` e `409`; esses status
+são sucesso do teste, pois comprovam segurança e idempotência. A pasta
+`12-frontend-contracts` percorre convites, retirada de candidatura, seleção de campanha,
+leituras paginadas, relatórios, auditoria e mudanças de estado. Seus dois últimos
+requests comprovam que um lote fora de rascunho e um finding resolvido não podem ser
+cancelados/encerrados.

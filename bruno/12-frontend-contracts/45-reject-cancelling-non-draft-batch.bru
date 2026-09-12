@@ -1,0 +1,28 @@
+meta {
+  name: Reject cancelling non-draft batch
+  type: http
+  seq: 45
+}
+
+post {
+  url: {{base_url}}/v1/payout-batches/{{payout_batch_id}}/cancel
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+body:json {
+  {
+    "comment": "A completed batch must remain immutable."
+  }
+}
+
+tests {
+  test("Reject cancelling non-draft batch: HTTP contract", function () {
+    expect(res.status).to.equal(409);
+    expect(res.body.code).to.equal("payout_batch_not_cancellable");
+  });
+}

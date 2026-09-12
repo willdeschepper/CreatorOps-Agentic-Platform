@@ -1,0 +1,28 @@
+meta {
+  name: Reject dismissing resolved finding
+  type: http
+  seq: 46
+}
+
+post {
+  url: {{base_url}}/v1/agent/findings/{{finding_id}}/dismiss
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+body:json {
+  {
+    "comment": "A resolved finding cannot be dismissed."
+  }
+}
+
+tests {
+  test("Reject dismissing resolved finding: HTTP contract", function () {
+    expect(res.status).to.equal(409);
+    expect(res.body.code).to.equal("finding_resolved");
+  });
+}

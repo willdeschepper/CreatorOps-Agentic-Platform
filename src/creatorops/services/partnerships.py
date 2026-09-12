@@ -9,13 +9,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from creatorops.core.config import settings
-from creatorops.core.errors import ConflictError, NotFoundError, UnprocessableError
+from creatorops.core.errors import ConflictError, ForbiddenError, NotFoundError, UnprocessableError
 from creatorops.core.security import Principal, stable_hash
 from creatorops.core.time import clock
 from creatorops.models.enums import (
     ApplicationSource,
     ApplicationStatus,
     AssetType,
+    BrandRole,
     CampaignParticipantStatus,
     CampaignStatus,
     InvitationStatus,
@@ -170,6 +171,8 @@ async def get_application(
     if principal.brand_id is None:
         statement = statement.where(CreatorApplication.creator_id == principal.user_id)
     else:
+        if principal.role not in {BrandRole.OWNER, BrandRole.OPS}:
+            raise ForbiddenError()
         statement = statement.join(Program, Program.id == CreatorApplication.program_id).where(
             Program.brand_id == principal.brand_id
         )

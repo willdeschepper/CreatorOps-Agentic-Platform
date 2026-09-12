@@ -1,0 +1,25 @@
+meta {
+  name: Campaign participants
+  type: http
+  seq: 24
+}
+
+get {
+  url: {{base_url}}/v1/campaigns/{{campaign_id}}/participants?limit=2&offset=0
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+tests {
+  test("Campaign participants: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.items).to.be.an("array");
+    expect(res.body.total).to.be.a("number");
+    expect(res.body.limit).to.equal(2);
+    expect(res.body.offset).to.equal(0);
+  });
+}

@@ -16,16 +16,19 @@ programa → creator → cupom/link → venda → comissão → payout
 - FastAPI, Pydantic v2 e SQLAlchemy 2 assíncrono.
 - PostgreSQL 16 transacional com Alembic e ledger append-only.
 - Autenticação JWT, RBAC (`owner`, `ops`, `finance`, `creator`) e isolamento por marca.
-- Programas, campanhas, termos versionados, candidatura e ativação de creator.
+- Programas, campanhas, termos versionados, candidaturas, convites e ativação de creator.
+- Seleção de participantes por campanha, assets específicos e plano de comissão opcional.
 - Cupons e links, clique rastreável e atribuição com precedência de cupom.
 - Webhooks HMAC idempotentes, inclusive duplicidade concorrente e eventos fora de ordem.
 - Comissão por plano imutável, faixa de GMV, bônus, janela de devolução e liquidação.
-- Firestore Emulator para posts brutos e Pub/Sub Emulator com outbox/inbox.
+- Firestore Emulator para posts brutos e Pub/Sub Emulator com outbox/inbox. Reimportar posts
+  revisados preserva a decisão humana e o revisor.
 - Payout local com `pending`, `confirmed`, `failed` e `unknown`.
 - Provedor financeiro FastAPI deliberadamente instável e idempotente.
 - Reconciliação, finding imutável, proposta determinística, gates e aprovação humana.
 - Logs JSON, correlation ID, métricas Prometheus e traces no Jaeger.
-- Cenário ponta a ponta executável e coleção Bruno completa e encadeada.
+- Contratos tipados de leitura, paginação, relatórios de programa/campanha/creator e auditoria.
+- Cenário ponta a ponta executável e coleção Bruno encadeada.
 
 Nenhuma conta cloud, LLM, rede social ou transferência real é usada.
 
@@ -51,7 +54,7 @@ comissões; Financeiro aprova os pagamentos. As campanhas são ativações opcio
 ```mermaid
 flowchart TB
     Marca["Marca"] --> Programa["Operações / Financeiro: configurar programa<br/>Termos e plano de comissão"]
-    Programa -. "ativação opcional" .-> Campanha["Campanhas do programa"]
+    Programa -. "ativação opcional" .-> Campanha["Campanhas do programa<br/>Operações seleciona creators e ativa assets específicos"]
     Programa --> Parceria["Creator se candidata<br/>Operações aprova a candidatura"]
     Parceria --> Ativacao["Creator aceita os termos<br/>Sistema ativa parceria, cupom e link"]
     Ativacao --> Venda["Sistema: atribuir venda paga<br/>Cupom válido tem prioridade sobre clique"]
@@ -147,13 +150,14 @@ make demo
 ```
 
 Esse único comando prepara dados exclusivos e percorre a jornada inteira. Ele cria dois
-creators para provar um conflito real: o clique pertence ao creator B, mas o cupom válido do
-creator A vence. Também reenvia o mesmo webhook para provar idempotência, importa conteúdo,
+creators e uma campanha com plano próprio para provar um conflito real: o clique pertence
+ao creator B, mas o cupom de campanha válido do creator A vence. Também reenvia o mesmo
+webhook para provar idempotência, importa e reimporta conteúdo preservando a revisão,
 liquida a comissão com relógio avançado, provoca timeout depois do pagamento e fecha a
 divergência somente após gates e aprovação humana.
 
 A mesma jornada pode ser executada request por request no Bruno. Abra a pasta `bruno/`,
-selecione o ambiente `local` e rode a coleção inteira. Ela cobre todos os endpoints públicos,
+selecione o ambiente `local` e rode a coleção inteira. Ela cobre os endpoints públicos,
 salva automaticamente tokens e IDs entre as etapas e inclui checks negativos de HMAC, RBAC,
 isolamento e idempotência. O guia está em [bruno/README.md](bruno/README.md).
 
@@ -166,7 +170,8 @@ O JSON final deve mostrar, entre outros campos:
   "payout_before_reconciliation": "unknown",
   "finding_type": "provider_confirmed_internal_unknown",
   "gate_result": "passed",
-  "proposal_state": "executed"
+  "proposal_state": "executed",
+  "content_review_preserved_after_reimport": true
 }
 ```
 
@@ -202,6 +207,8 @@ make reset      # apaga apenas os volumes Docker deste Compose
 
 Detalhes estão em [docs/domain-rules.md](docs/domain-rules.md) e a decomposição técnica em
 [docs/architecture.md](docs/architecture.md).
+
+O contrato para a próxima fase está em [docs/frontend-handoff.md](docs/frontend-handoff.md).
 
 ## Estrutura
 

@@ -1,0 +1,30 @@
+meta {
+  name: Select campaign participant
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{base_url}}/v1/campaigns/{{campaign_id}}/participants
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "membership_ids": [
+      "{{membership_a_id}}"
+    ]
+  }
+}
+
+tests {
+  test("Select campaign participant: HTTP contract", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.exist;
+  });
+}

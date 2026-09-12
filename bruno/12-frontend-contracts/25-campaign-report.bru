@@ -1,0 +1,22 @@
+meta {
+  name: Campaign report
+  type: http
+  seq: 25
+}
+
+get {
+  url: {{base_url}}/v1/reports/campaigns/{{campaign_id}}/overview
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+tests {
+  test("Campaign report: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}

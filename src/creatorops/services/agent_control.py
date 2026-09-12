@@ -342,6 +342,24 @@ async def dismiss_finding(
             return finding
         if finding.state == FindingState.RESOLVED:
             raise ConflictError("finding_resolved", "Resolved findings cannot be dismissed")
+        proposals = list(
+            (
+                await session.scalars(
+                    select(Proposal).where(Proposal.finding_id == finding.id).with_for_update()
+                )
+            ).all()
+        )
+        if any(proposal.state == ProposalState.APPROVED for proposal in proposals):
+            raise ConflictError(
+                "approved_proposal_exists", "An approved proposal must be resolved first"
+            )
+        for proposal in proposals:
+            if proposal.state in {
+                ProposalState.DRAFT,
+                ProposalState.GATED,
+                ProposalState.BLOCKED,
+            }:
+                proposal.state = ProposalState.STALE
         finding.state = FindingState.DISMISSED
         finding.resolved_at = now
         add_audit(
@@ -443,6 +461,11 @@ async def _evaluate_gates(
         "evidence_hash",
         proposal.evidence_hash == finding.evidence_hash,
         "Proposal must reference the immutable finding evidence",
+    )
+    check(
+        "finding_open",
+        finding.state not in {FindingState.DISMISSED, FindingState.RESOLVED},
+        "Dismissed or resolved findings cannot be executed",
     )
     check(
         "payout_version",

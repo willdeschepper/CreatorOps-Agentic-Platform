@@ -1,0 +1,29 @@
+meta {
+  name: Verify human review survives reimport
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/v1/posts/{{content_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+script:pre-request {
+  await bru.sleep(2500);
+}
+
+tests {
+  test("Metrics change while status and reviewer remain intact", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("approved");
+    expect(res.body.reviewed_by).to.equal(bru.getEnvVar("content_reviewer"));
+    expect(res.body.reviewed_at).to.equal(bru.getEnvVar("content_reviewed_at"));
+    expect(res.body.metrics.views).to.equal(5000);
+  });
+}

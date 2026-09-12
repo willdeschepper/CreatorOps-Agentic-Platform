@@ -1,0 +1,18 @@
+meta {
+  name: Inspect invitation
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/v1/invitations/{{invite_token}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Inspect invitation: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}

@@ -27,7 +27,7 @@ from creatorops.models.finance import Payout
 from creatorops.services import agent_control, finance
 from creatorops.services.commissions import add_ledger_entry, balances_for_membership
 from creatorops.services.provider import ProviderTransfer
-from tests.helpers import DomainFixture, create_domain_fixture, unique
+from tests.helpers import DomainFixture, auth, create_domain_fixture, unique
 
 
 class TimeoutAfterProvider:
@@ -112,7 +112,9 @@ async def _unknown_payout() -> tuple[DomainFixture, Principal, Payout, TimeoutAf
     return fixture, principal, payout, provider
 
 
-async def test_unknown_payout_requires_gates_human_approval_and_no_retry() -> None:
+async def test_unknown_payout_requires_gates_human_approval_and_no_retry(
+    client: httpx.AsyncClient,
+) -> None:
     fixture, principal, payout, provider = await _unknown_payout()
     assert principal.brand_id is not None
     run, findings = await agent_control.run_reconciliation(
@@ -134,6 +136,12 @@ async def test_unknown_payout_requires_gates_human_approval_and_no_retry() -> No
         )
     assert gate.result == GateResult.PASSED
     assert all(check["passed"] for check in gate.checks)
+    detail = await client.get(
+        f"/v1/agent/proposals/{proposal.id}", headers=auth(fixture.staff_token)
+    )
+    assert detail.status_code == 200
+    assert detail.json()["id"] == str(proposal.id)
+    assert detail.json()["gates"][0]["result"] == "passed"
 
     with pytest.raises(ConflictError, match="human approval"):
         async with session_factory() as session:
@@ -208,3 +216,34 @@ async def test_executor_marks_approved_proposal_stale_when_payout_changes() -> N
         persisted = await session.get(Proposal, proposal.id)
     assert persisted is not None
     assert persisted.state == ProposalState.STALE
+
+
+async def test_dismissing_finding_stales_unapproved_proposal_without_money_change() -> None:
+    _fixture, principal, payout, provider = await _unknown_payout()
+    assert principal.brand_id is not None
+    _run, findings = await agent_control.run_reconciliation(
+        brand_id=principal.brand_id,
+        started_by=principal.user_id,
+        payout_provider=provider,
+    )
+    finding = findings[0]
+    async with session_factory() as session:
+        proposal = await agent_control.generate_proposal(
+            session, brand_id=principal.brand_id, finding_id=finding.id
+        )
+    async with session_factory() as session:
+        dismissed = await agent_control.dismiss_finding(
+            session,
+            principal=principal,
+            finding_id=finding.id,
+            comment="Investigation moved outside this prototype",
+        )
+    assert dismissed.state == FindingState.DISMISSED
+    async with session_factory() as session:
+        persisted_proposal = await session.get(Proposal, proposal.id)
+        persisted_payout = await session.get(Payout, payout.id)
+    assert persisted_proposal is not None
+    assert persisted_proposal.state == ProposalState.STALE
+    assert persisted_payout is not None
+    assert persisted_payout.status == PayoutStatus.UNKNOWN
+    assert provider.create_calls == 1

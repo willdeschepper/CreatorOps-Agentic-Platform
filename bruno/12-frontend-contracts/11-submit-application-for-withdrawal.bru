@@ -1,0 +1,32 @@
+meta {
+  name: Submit application for withdrawal
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/applications
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{withdraw_creator_token}}
+}
+
+body:json {
+  {
+    "motivation": "Testing the withdrawal lifecycle locally."
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("withdraw_application_id", res.body.id);
+}
+
+tests {
+  test("Submit application for withdrawal: HTTP contract", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.exist;
+  });
+}

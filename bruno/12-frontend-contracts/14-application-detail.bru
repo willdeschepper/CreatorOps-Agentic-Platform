@@ -1,0 +1,22 @@
+meta {
+  name: Application detail
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{base_url}}/v1/applications/{{withdraw_application_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{withdraw_creator_token}}
+}
+
+tests {
+  test("Application detail: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}

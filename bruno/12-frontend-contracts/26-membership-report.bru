@@ -1,0 +1,22 @@
+meta {
+  name: Membership report
+  type: http
+  seq: 26
+}
+
+get {
+  url: {{base_url}}/v1/reports/memberships/{{membership_a_id}}/overview
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{creator_a_token}}
+}
+
+tests {
+  test("Membership report: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Proposal detail with gates
+  type: http
+  seq: 39
+}
+
+get {
+  url: {{base_url}}/v1/agent/proposals/{{proposal_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{finance_token}}
+}
+
+tests {
+  test("Proposal detail with gates: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}

@@ -6,17 +6,22 @@
 |---|---|
 | `identity` | usuário, JWT, papel e marca ativa |
 | `programs` | programa, campanha, termos e planos versionados |
-| `partnerships` | creator, candidatura, membership e assets |
+| `partnerships` | creator, candidatura, convite, membership, seleção de campanha e assets |
 | `attribution` | cliques, webhooks, pedido e decisão de atribuição |
 | `commissions` | cálculo, liquidação e ledger |
 | `listening` | documento bruto, matching e revisão humana |
 | `finance` | lote, reserva, payout e provedor |
 | `agent_control` | finding, proposta, gates, aprovação e execução |
-| `reporting` | projeções de leitura por programa |
+| `reporting` | projeções de leitura por programa, campanha e creator |
 
 Os limites estão em um monólito modular porque o objetivo é estudar regras transacionais.
 Eles podem ser extraídos depois que volume, equipe ou isolamento operacional justificarem a
 complexidade distribuída.
+
+As listas HTTP usam envelope `{items, total, limit, offset}` e ordenação estável.
+Detalhes e relatórios são escopados pela marca autenticada; leituras do creator são
+escopadas pela própria identidade. O [handoff do frontend](frontend-handoff.md) descreve
+papéis, filtros, estados e erros.
 
 ## Consistência
 
@@ -72,6 +77,9 @@ chave original separa “não recebi resposta” de “não processou”.
 - Erros usam Problem Details sem devolver stack trace ou existência de dados de outro tenant.
 - Configuração local falha se os hosts de emulador estiverem ausentes, evitando fallback
   acidental para GCP real.
+- CORS aceita somente as duas origens Vite locais configuradas por padrão.
+- A identidade de posts sociais é `(brand_id, network, external_post_id)` em Postgres,
+  Firestore e no evento; reimportar conteúdo revisado não reverte a decisão humana.
 
 ## Portabilidade futura
 

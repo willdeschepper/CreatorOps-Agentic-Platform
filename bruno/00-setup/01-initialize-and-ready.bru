@@ -26,6 +26,9 @@ script:pre-request {
   bru.setEnvVar("creator_a_handle", `alice_${handleRunId}`);
   bru.setEnvVar("creator_b_email", `bruno-${runId}@creatorops.dev`);
   bru.setEnvVar("creator_b_handle", `bruno_${handleRunId}`);
+  bru.setEnvVar("invite_email", `invited-${runId}@creatorops.dev`);
+  bru.setEnvVar("revoke_email", `revoked-${runId}@creatorops.dev`);
+  bru.setEnvVar("withdraw_email", `withdraw-${runId}@creatorops.dev`);
   bru.setEnvVar("visitor_id", `shopper-${runId}`);
   bru.setEnvVar("commerce_event_id", `evt-paid-${runId}`);
   bru.setEnvVar("external_order_id", `order-${runId}`);
@@ -45,7 +48,10 @@ script:pre-request {
     "program_id", "terms_id", "commission_plan_id", "campaign_id", "creator_a_id",
     "application_a_id", "membership_a_id", "coupon_a_code", "link_a_code", "creator_b_id",
     "application_b_id", "membership_b_id", "coupon_b_code", "link_b_code", "click_id",
-    "order_id", "content_id", "payout_batch_id", "payout_id", "finding_id", "proposal_id"
+    "order_id", "content_id", "payout_batch_id", "payout_id", "finding_id", "proposal_id",
+    "reconciliation_run_id", "invite_token", "invite_id", "invite_creator_token",
+    "creator_invited_id", "invited_membership_id", "revoke_invitation_id",
+    "withdraw_creator_token", "withdraw_application_id"
   ].forEach((name) => bru.setEnvVar(name, ""));
 }
 

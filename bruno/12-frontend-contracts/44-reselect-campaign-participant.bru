@@ -1,0 +1,29 @@
+meta {
+  name: Reselect campaign participant
+  type: http
+  seq: 44
+}
+
+post {
+  url: {{base_url}}/v1/campaigns/{{campaign_id}}/participants/{{membership_a_id}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "status": "selected",
+    "comment": "Bruno restores campaign selection."
+  }
+}
+
+tests {
+  test("Reselect campaign participant: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.exist;
+  });
+}

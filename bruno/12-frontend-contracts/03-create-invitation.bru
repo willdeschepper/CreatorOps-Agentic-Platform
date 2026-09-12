@@ -1,0 +1,34 @@
+meta {
+  name: Create invitation
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/v1/programs/{{program_id}}/invitations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+body:json {
+  {
+    "email": "{{invite_email}}",
+    "expires_in_hours": 48
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("invite_token", res.body.token);
+  bru.setEnvVar("invite_id", res.body.id);
+}
+
+tests {
+  test("Create invitation: HTTP contract", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.exist;
+  });
+}

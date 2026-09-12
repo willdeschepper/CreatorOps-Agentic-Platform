@@ -31,7 +31,12 @@ flowchart TB
     Pronto -->|Não| Bloqueio["Sistema: recusar ativação"]
     Pronto -->|Sim| Programa["Operações: ativar programa<br/>(active)"]
     Programa -. "ativação opcional" .-> Campanha["Operações: criar campanha<br/>com datas dentro do programa"]
+    Campanha --> Participantes["Operações: selecionar creators ativos<br/>Sistema gera assets próprios da campanha"]
     Programa --> Candidatura["Creator: cadastrar perfil e handles<br/>Enviar candidatura (submitted)"]
+    Programa --> Convite["Operações: convidar por e-mail<br/>Token único com expiração"]
+    Convite --> ConviteAceito{"Creator autenticado com o mesmo e-mail<br/>aceitou antes de expirar?"}
+    ConviteAceito -->|Sim| Aguardando
+    ConviteAceito -->|Não| SemParceria["Sistema: não criar parceria<br/>Convite vencido/revogado permanece auditável"]
     Candidatura --> Revisao{"Operações: decisão<br/>sobre a candidatura?"}
     Revisao -->|"Em análise"| Analise["Candidatura em análise<br/>(in_review)"]
     Analise --> Revisao
@@ -50,7 +55,11 @@ ultrapassada é recusado.
 
 - Programa é uma operação contínua; campanha é uma ativação limitada dentro dele.
 - Um programa só ativa depois de possuir ao menos um termo e um plano padrão de comissão.
-- Aprovar candidatura cria membership em `awaiting_terms`, nunca já ativa.
+- Aprovar candidatura ou aceitar convite cria membership em `awaiting_terms`, nunca já ativa.
+- Rejeição e retirada permitem nova candidatura; uma membership existente bloqueia nova
+  tentativa. Convite guarda somente hash do token e só pode ser usado uma vez.
+- Campanha seleciona memberships ativas do mesmo programa. Remoção, pausa, datas ou estado
+  inválido bloqueiam novas atribuições por seus assets; retomar só reativa assets elegíveis.
 - Publicar novo termo obrigatório desativa os assets e exige novo aceite.
 - Pausar/offboard não apaga histórico, comissão ou saldo.
 - Handles normalizados são únicos por rede.
@@ -77,6 +86,8 @@ flowchart TB
 ```
 
 Cupom e clique precisam pertencer à marca e estar ligados a assets e parcerias ativos.
+Quando o asset é de campanha, a participação precisa estar `selected`, a campanha deve
+estar ativa e o instante da venda dentro de suas datas. Asset do programa não exige campanha.
 O MVP avalia o `click_id` recebido no evento: ele não procura automaticamente o último
 clique entre todas as visitas. A atribuição ocorre ao aceitar `order.paid`; um pedido apenas
 criado ainda não gera comissão.
@@ -210,14 +221,19 @@ reconciliação. Não há uma nova consulta ao provedor dentro dos gates.
 ```mermaid
 flowchart TB
     Importar["Operações: importar posts locais<br/>Informar programa e campanha opcional"]
-    Importar --> Guardar["Sistema: guardar conteúdo e métricas<br/>Identificar post por rede e ID externo"]
-    Guardar --> Perfil{"Há perfil verificado com handle correspondente<br/>e parceria ativa no programa?"}
+    Importar --> Guardar["Sistema: guardar conteúdo e métricas<br/>Identificar por marca, rede e ID externo"]
+    Guardar --> Revisado{"Post já foi revisado?"}
+    Revisado -->|Sim| Preservar["Sistema: preservar decisão, vínculo e revisor<br/>Atualizar somente métricas e documento bruto"]
+    Revisado -->|Não| Perfil{"Há perfil verificado com handle correspondente<br/>e parceria ativa no programa?"}
     Perfil -->|Sim| Associado["Sistema: associar à parceria do creator<br/>Conteúdo matched"]
     Perfil -->|Não| Detectado["Sistema: manter sem parceria identificada<br/>Conteúdo detected"]
     Associado --> Revisao{"Operações: decisão<br/>sobre o conteúdo?"}
     Detectado --> Revisao
     Revisao -->|Aprovar| Aprovado["Sistema: registrar conteúdo approved"]
     Revisao -->|Rejeitar| Rejeitado["Sistema: registrar conteúdo rejected<br/>Fora da contagem de aprovados"]
+    Preservar --> Escopo{"Programa, campanha, handle<br/>ou publicação mudou?"}
+    Escopo -->|Sim| Conflito["Sistema: responder 409<br/>Exigir revisão humana explícita"]
+    Escopo -->|Não| Relatorio
     Aprovado --> Relatorio["Sistema: atualizar visão do programa<br/>Contagem de posts aprovados"]
     Vendas["Pedidos e atribuições"] -. "GMV, devoluções e pedidos" .-> Relatorio
     Comissoes["Histórico financeiro de comissões"] -. "pendente, disponível, reservado e pago" .-> Relatorio
@@ -226,9 +242,10 @@ flowchart TB
 
 - Matching não é aprovação: mesmo um post `matched` precisa de revisão para contar como
   aprovado. Enquanto não revisado, permanece `detected` ou `matched`.
-- Reimportar o mesmo post atualiza o registro pela rede e ID externo; não cria outro post.
-  No comportamento atual, a reimportação recalcula o matching e volta o estado para
-  `detected` ou `matched`, exigindo nova aprovação para entrar no relatório.
+- A identidade do post inclui marca, rede e ID externo. Reimportar conteúdo não revisado
+  pode recalcular matching. Para conteúdo `approved` ou `rejected`, a reimportação preserva
+  estado, parceria e revisor; atualiza apenas métricas e documento bruto. Mudar programa,
+  campanha, handle ou data de publicação após revisão retorna `409`.
 - Operações também pode revisar um post sem creator identificado. O relatório atual conta
   posts `approved` do programa, sem exigir vínculo com uma parceria.
 - As métricas importadas ficam no conteúdo. A visão consolidada expõe contagem de posts

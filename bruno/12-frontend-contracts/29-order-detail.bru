@@ -1,0 +1,22 @@
+meta {
+  name: Order detail
+  type: http
+  seq: 29
+}
+
+get {
+  url: {{base_url}}/v1/orders/{{order_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ops_token}}
+}
+
+tests {
+  test("Order detail: HTTP contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+  });
+}
